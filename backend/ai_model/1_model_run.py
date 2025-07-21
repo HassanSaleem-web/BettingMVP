@@ -33,10 +33,6 @@ X = df[features]
 scaler = joblib.load(scaler_path)
 model = joblib.load(model_path)
 
-# 🩹 PATCH: Ensure model has classes_ set
-if not hasattr(model, 'classes_'):
-    model.classes_ = np.array(['A', 'D', 'H'])
-
 # 7. Scale + predict
 X_scaled = scaler.transform(X)
 probs = model.predict_proba(X_scaled)
@@ -85,7 +81,8 @@ for col in ['HomeTeam', 'AwayTeam']:
     if col in df.columns:
         value_bets[col] = df.loc[value_bets.index, col]
 
-# 15. Save outputs
+# 15. Save outputs (all available columns)
+#value_bets.to_csv(value_bets_output, index=False)
 df.to_csv(value_bets_output, index=False)
 df[['FTR_pred', 'Prob_H', 'Prob_D', 'Prob_A']].to_csv(predictions_output, index=False)
 
