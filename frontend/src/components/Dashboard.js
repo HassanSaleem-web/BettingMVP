@@ -12,7 +12,7 @@ const Dashboard = ({username}) => {
   useEffect(() => {
     const fetchBets = async () => {
       try {
-        const res = await fetch( `${process.env.API_URL}/bets/all-bets`);
+        const res = await fetch( `${process.env.REACT_APP_API_URL}/bets/all-bets`);
         const data = await res.json();
         setBets(data);
       } catch (err) {
@@ -34,7 +34,7 @@ const Dashboard = ({username}) => {
     }
     console.log("user", username);
     try {
-      const res = await fetch(`${process.env.API_URL}/bets/place-bet`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/place-bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

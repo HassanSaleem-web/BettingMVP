@@ -7,7 +7,7 @@ const MyBets = ({ username }) => {
   useEffect(() => {
     const fetchUserBets = async () => {
       try {
-        const res = await fetch(`${process.env.API_URL}/bets/user-bets?user_id=${username}`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/user-bets?user_id=${username}`);
 
         const data = await res.json();
         setBets(data);
@@ -18,7 +18,7 @@ const MyBets = ({ username }) => {
 
     const fetchGrowth = async () => {
       try {
-        const res = await fetch(`${process.env.API_URL}/bets/bankroll-growth?user_id=${username}`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/bankroll-growth?user_id=${username}`);
         const data = await res.json();
         setGrowth(data);
       } catch (err) {
