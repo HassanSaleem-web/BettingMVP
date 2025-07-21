@@ -1,0 +1,122 @@
+[
+  {
+    "match_id": "1001",
+    "team1": "Liverpool",
+    "team2": "Manchester City",
+    "sport": "Football",
+    "league": "Premier League",
+    "start_time": "2023-10-29T16:30:00",
+    "bookmaker_odds": 2.45,
+    "selection": "Liverpool Win"
+  },
+  {
+    "match_id": "1002",
+    "team1": "Arsenal",
+    "team2": "Chelsea",
+    "sport": "Football",
+    "league": "Premier League",
+    "start_time": "2023-10-29T14:00:00",
+    "bookmaker_odds": 1.85,
+    "selection": "Arsenal Win"
+  },
+  {
+    "match_id": "1003",
+    "team1": "Los Angeles Lakers",
+    "team2": "Golden State Warriors",
+    "sport": "Basketball",
+    "league": "NBA",
+    "start_time": "2023-10-29T03:30:00",
+    "bookmaker_odds": 2.10,
+    "selection": "Lakers Win"
+  },
+  {
+    "match_id": "1004",
+    "team1": "Boston Celtics",
+    "team2": "Milwaukee Bucks",
+    "sport": "Basketball",
+    "league": "NBA",
+    "start_time": "2023-10-29T01:00:00",
+    "bookmaker_odds": 1.75,
+    "selection": "Celtics Win"
+  },
+  {
+    "match_id": "1005",
+    "team1": "Rafael Nadal",
+    "team2": "Novak Djokovic",
+    "sport": "Tennis",
+    "league": "ATP",
+    "start_time": "2023-10-30T12:00:00",
+    "bookmaker_odds": 2.70,
+    "selection": "Nadal Win"
+  },
+  {
+    "match_id": "1006",
+    "team1": "Carlos Alcaraz",
+    "team2": "Alexander Zverev",
+    "sport": "Tennis",
+    "league": "ATP",
+    "start_time": "2023-10-30T10:00:00",
+    "bookmaker_odds": 1.55,
+    "selection": "Alcaraz Win"
+  },
+  {
+    "match_id": "1007",
+    "team1": "Kansas City Chiefs",
+    "team2": "Philadelphia Eagles",
+    "sport": "American Football",
+    "league": "NFL",
+    "start_time": "2023-10-30T01:20:00",
+    "bookmaker_odds": 1.90,
+    "selection": "Chiefs Win"
+  },
+  {
+    "match_id": "1008",
+    "team1": "Dallas Cowboys",
+    "team2": "San Francisco 49ers",
+    "sport": "American Football",
+    "league": "NFL",
+    "start_time": "2023-10-29T21:25:00",
+    "bookmaker_odds": 2.20,
+    "selection": "49ers Win"
+  },
+  {
+    "match_id": "1009",
+    "team1": "Israel Adesanya",
+    "team2": "Alex Pereira",
+    "sport": "MMA",
+    "league": "UFC",
+    "start_time": "2023-11-12T05:00:00",
+    "bookmaker_odds": 2.35,
+    "selection": "Adesanya Win"
+  },
+  {
+    "match_id": "1010",
+    "team1": "Jon Jones",
+    "team2": "Ciryl Gane",
+    "sport": "MMA",
+    "league": "UFC",
+    "start_time": "2023-11-12T04:30:00",
+    "bookmaker_odds": 1.60,
+    "selection": "Jones Win"
+  },
+  {
+    "match_id": "1011",
+    "team1": "New York Rangers",
+    "team2": "Boston Bruins",
+    "sport": "Hockey",
+    "league": "NHL",
+    "start_time": "2023-10-28T19:00:00",
+    "bookmaker_odds": 2.05,
+    "selection": "Rangers Win"
+  },
+  {
+    "match_id": "1012",
+    "team1": "Toronto Maple Leafs",
+    "team2": "Montreal Canadiens",
+    "sport": "Hockey",
+    "league": "NHL",
+    "start_time": "2023-10-28T19:00:00",
+    "bookmaker_odds": 1.65,
+    "selection": "Maple Leafs Win"
+  }
+] 
