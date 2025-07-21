@@ -40,7 +40,6 @@ dnspython==2.7.0
 docutils==0.17.1
 duplicity==0.8.21
 earningscall==1.2.0
-Electrum @ file:///home/hudee/electrum
 electrum-aionostr==0.0.6
 electrum-ecc==0.0.1
 empath==0.89
