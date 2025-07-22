@@ -203,8 +203,10 @@ exports.getAllBets = async (req, res) => {
 
         const filtered = rows.filter(r =>
             r.HomeTeam && r.AwayTeam &&
-            r.chosen_odds && r.chosen_prob && r.Expected_Value
+            r.chosen_odds && r.chosen_prob && r.Expected_Value &&
+            parseFloat(r.Expected_Value) <= 0.5
         );
+
 
         // ✅ Daily Offset Calculation
         const dayOffset = new Date().getDate(); // e.g. 1 to 31
