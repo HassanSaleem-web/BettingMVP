@@ -19,18 +19,45 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
 
-  const handleLogin = (user) => {
+  useEffect(() => {
+  const savedUser = localStorage.getItem('loggedInUser');
+  if (savedUser) {
     setIsLoggedIn(true);
-    setUsername(user);
+    setUsername(savedUser);
     fetchData();
-  };
+  }
+}, []);
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUsername('');
-    setBets([]);
-    setNotifications([]);
-  };
+
+const handleLogin = async (user) => {
+  setIsLoggedIn(true);
+  setUsername(user);
+  localStorage.setItem('loggedInUser', user); // persist
+
+  setLoading(true);
+  try {
+    await Promise.all([
+      fetchData(),
+      new Promise(resolve => setTimeout(resolve, 2000))
+    ]);
+  } catch (err) {
+    console.error('Login fetch error:', err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+
+const handleLogout = () => {
+  setIsLoggedIn(false);
+  setUsername('');
+  setBets([]);
+  setNotifications([]);
+  localStorage.removeItem('loggedInUser');
+};
+
 
   const fetchData = async () => {
     try {
@@ -167,7 +194,7 @@ const AppContent = ({
                 <Route path="/dashboard" element={<Dashboard username={username} />} />
                 <Route path="/value-bets" element={<ValueBets bets={bets} />} />
                 <Route path="/my-bets" element={<MyBets username={username}/>} />
-                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/analytics" element={<Analytics username={username}/>} />
                 <Route path="/simulation" element={<Simulation />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </>

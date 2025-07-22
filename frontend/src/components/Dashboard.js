@@ -158,10 +158,10 @@ const Dashboard = ({username}) => {
                   <tr key={bet.match_id} className={bet.isValueBet ? 'bg-green-50' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bet.team1} vs {bet.team2}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{bet.sport}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{bet.odds.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{(bet.predicted_win_prob * 100).toFixed(1)}%</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{bet.odds?.toFixed(2)??'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{(bet.predicted_win_prob * 100)?.toFixed(1)??'N/A'}%</td>
                     <td className={`px-6 py-4 text-sm font-medium ${bet.expected_value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(bet.expected_value * 100).toFixed(2)}%
+                    {(bet.expected_value * 100)?.toFixed(2)??'N/A'}%
                   </td>
                     <td className="px-6 py-4 text-sm">
                       <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${getStatusColor(bet)}`}>

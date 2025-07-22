@@ -10,7 +10,7 @@ const Simulation = () => {
     minOdds: 1.5,
     maxOdds: 5.0,
     minEv: 0.02,
-    sports: ['Football', 'Basketball', 'Tennis'],
+    sports: ['Football'],
     timeframe: '3months' // '1month', '3months', '6months', '1year'
   });
   
@@ -54,47 +54,77 @@ const Simulation = () => {
     }
   };
   
-  const runSimulation = () => {
-    setIsRunning(true);
+  const runSimulation = async () => {
+  setIsRunning(true);
+  setProgress(0);
+
+  // Progress bar animation
+  const interval = setInterval(() => {
+    setProgress(prev => {
+      if (prev >= 95) {
+        clearInterval(interval); // Prevent from going over while waiting for real API
+        return prev;
+      }
+      return prev + 5;
+    });
+  }, 150);
+
+  try {
+    const response = await fetch(`${process.env.REACT_APP_API_URL}/bets/simulate-strategy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bankroll: simulationSettings.initialBankroll,
+        stake_type: simulationSettings.betSize,
+        fixed_stake: simulationSettings.fixedAmount,
+        percent: simulationSettings.percentageAmount,
+        kelly_fraction: simulationSettings.kellyFraction,
+        min_odds: simulationSettings.minOdds,
+        max_odds: simulationSettings.maxOdds,
+        ev_threshold: simulationSettings.minEv,
+        sports: simulationSettings.sports,
+        timeframe: simulationSettings.timeframe
+      })
+    });
+
+    const data = await response.json();
+
+    console.log("simulation", data);
+    clearInterval(interval);
+    setResults(data);
+    setProgress(100);
+    setIsRunning(false);
+  } catch (error) {
+    clearInterval(interval);
+    setIsRunning(false);
     setProgress(0);
-    
-    // Simulate the progress
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsRunning(false);
-          
-          // Generate mock results when simulation completes
-          generateMockResults();
-          return 100;
-        }
-        return prev + 5;
-      });
-    }, 200);
-  };
+    console.error("Simulation error:", error);
+    alert("Failed to simulate strategy. Please try again.");
+  }
+};
+
   
-  const generateMockResults = () => {
-    // In a real app, this would come from the backend
-    const mockResults = {
-      startingBankroll: simulationSettings.initialBankroll,
-      finalBankroll: simulationSettings.initialBankroll * 1.37, // 37% growth
-      totalBets: 235,
-      wonBets: 132,
-      lostBets: 103,
-      winRate: 56.2,
-      roi: 37.0,
-      maxDrawdown: 12.4,
-      profitFactor: 1.52,
-      dailyData: Array(30).fill().map((_, i) => ({
-        day: i + 1,
-        bankroll: simulationSettings.initialBankroll * (1 + 0.012 * i + (Math.random() * 0.03 - 0.015))
-      })),
-      monthlyReturns: [5.2, 8.7, -3.1, 7.5, 12.3, 6.8]
-    };
+  // const generateMockResults = () => {
+  //   // In a real app, this would come from the backend
+  //   const mockResults = {
+  //     startingBankroll: simulationSettings.initialBankroll,
+  //     finalBankroll: simulationSettings.initialBankroll * 1.37, // 37% growth
+  //     totalBets: 235,
+  //     wonBets: 132,
+  //     lostBets: 103,
+  //     winRate: 56.2,
+  //     roi: 37.0,
+  //     maxDrawdown: 12.4,
+  //     profitFactor: 1.52,
+  //     dailyData: Array(30).fill().map((_, i) => ({
+  //       day: i + 1,
+  //       bankroll: simulationSettings.initialBankroll * (1 + 0.012 * i + (Math.random() * 0.03 - 0.015))
+  //     })),
+  //     monthlyReturns: [5.2, 8.7, -3.1, 7.5, 12.3, 6.8]
+  //   };
     
-    setResults(mockResults);
-  };
+  //   setResults(mockResults);
+  // };
   
   const resetSimulation = () => {
     setResults(null);
@@ -309,7 +339,7 @@ const Simulation = () => {
                 Sports to Include
               </label>
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {availableSports.map(sport => (
+                {Array.isArray(availableSports) && availableSports.map(sport => (
                   <div key={sport} className="flex items-start">
                     <div className="flex items-center h-5">
                       <input
@@ -401,26 +431,26 @@ const Simulation = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-blue-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-blue-500 uppercase font-medium mb-1">Final Bankroll</div>
-              <div className="text-2xl font-bold text-blue-800">${results.finalBankroll.toFixed(2)}</div>
-              <div className="text-xs text-blue-400 mt-1">Start: ${results.startingBankroll.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-blue-800">${results.finalBankroll?.toFixed(2) ?? 'N/A'}</div>
+              <div className="text-xs text-blue-400 mt-1">Start: ${results.startingBankroll?.toFixed(2) ?? 'N/A'}</div>
             </div>
             
             <div className="bg-green-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-green-500 uppercase font-medium mb-1">Total Return</div>
-              <div className="text-2xl font-bold text-green-800">+{results.roi.toFixed(1)}%</div>
+              <div className="text-2xl font-bold text-green-800">+{results.roi?.toFixed(1) ?? '0.0'}%</div>
               <div className="text-xs text-green-400 mt-1">{results.totalBets} bets placed</div>
             </div>
             
             <div className="bg-gray-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-gray-500 uppercase font-medium mb-1">Win Rate</div>
-              <div className="text-2xl font-bold text-gray-800">{results.winRate.toFixed(1)}%</div>
+              <div className="text-2xl font-bold text-gray-800">{results.winRate?.toFixed(1) ?? '0.0'}%</div>
               <div className="text-xs text-gray-400 mt-1">{results.wonBets}W - {results.lostBets}L</div>
             </div>
             
             <div className="bg-purple-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-purple-500 uppercase font-medium mb-1">Max Drawdown</div>
-              <div className="text-2xl font-bold text-purple-800">{results.maxDrawdown.toFixed(1)}%</div>
-              <div className="text-xs text-purple-400 mt-1">Profit Factor: {results.profitFactor.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-purple-800">{results.maxDrawdown?.toFixed(1) ?? '0.0'}%</div>
+              <div className="text-xs text-purple-400 mt-1">Profit Factor: {results.profitFactor?.toFixed(2) ?? '1.00'}</div>
             </div>
           </div>
           
@@ -436,7 +466,7 @@ const Simulation = () => {
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <h4 className="text-lg font-medium text-gray-900 mb-4">Monthly Returns</h4>
             <div className="grid grid-cols-6 gap-2">
-              {results.monthlyReturns.map((returnValue, index) => (
+              {Array.isArray(results.monthlyReturns) && results.monthlyReturns.map((returnValue, index) => (
                 <div key={index} className="text-center">
                   <div className="h-24 flex flex-col justify-end">
                     <div 

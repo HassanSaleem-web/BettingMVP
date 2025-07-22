@@ -7,13 +7,13 @@ import os
 base_path = os.path.dirname(os.path.abspath(__file__))
 
 # 2. Input paths
-csv_path = os.path.join(base_path, "Decoded_Team_Filtered_Model_Ready_Features.csv")
+csv_path = os.path.join(base_path, "Cleaned_Enhanced_All_Seasons_Features.csv")
 scaler_path = os.path.join(base_path, "model", "scaler_model.joblib")
 model_path = os.path.join(base_path, "model", "calibrated_model.joblib")
 
 # 3. Output paths
 value_bets_output = os.path.join(base_path, "ValueBets_Deployable.csv")
-predictions_output = os.path.join(base_path, "FTR_Predictions_Deployable.csv")
+# predictions_output = os.path.join(base_path, "FTR_Predictions_Deployable.csv")
 
 # 4. Load the dataset
 df = pd.read_csv(csv_path)
@@ -84,7 +84,7 @@ for col in ['HomeTeam', 'AwayTeam']:
 # 15. Save outputs (all available columns)
 #value_bets.to_csv(value_bets_output, index=False)
 df.to_csv(value_bets_output, index=False)
-df[['FTR_pred', 'Prob_H', 'Prob_D', 'Prob_A']].to_csv(predictions_output, index=False)
+# df[['FTR_pred', 'Prob_H', 'Prob_D', 'Prob_A']].to_csv(predictions_output, index=False)
 
 print(f"💾 Saved: {value_bets_output}")
-print(f"💾 Saved: {predictions_output}")
+# print(f"💾 Saved: {predictions_output}")
