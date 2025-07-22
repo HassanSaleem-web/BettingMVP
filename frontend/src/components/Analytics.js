@@ -8,7 +8,7 @@ const Analytics = ({ username }) => {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/bets/analytics?user_id=${username}&timeframe=${timeframe}`);
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/analytics?user_id=${username}&timeframe=${timeframe}`);
       const data = await res.json();
       console.log("dataaa", data);
       setPerformanceData(data);
