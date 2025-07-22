@@ -344,6 +344,163 @@ exports.getAnalytics = async (req, res) => {
 };
 
 
+// exports.simulateStrategy = async (req, res) => {
+//   try {
+//     const {
+//       bankroll = 1000,
+//       stake_type = "fixed",
+//       fixed_stake = 50,
+//       percent = 5,
+//       ev_threshold = 0,
+//       min_odds = 1.01,
+//       max_odds = 100,
+//       timeframe = "year"
+//     } = req.body;
+
+//     console.log("🧪 Simulation params received:", {
+//       bankroll,
+//       stake_type,
+//       fixed_stake,
+//       percent,
+//       ev_threshold,
+//       min_odds,
+//       max_odds,
+//       timeframe
+//     });
+
+//     const rows = await loadValueBetsCSV();
+//     console.log("📊 Total rows loaded from CSV:", rows.length);
+
+//     const latestDate = moment.max(
+//       rows.map(r => moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]))
+//     );
+//     console.log("The latest date is:", latestDate);
+    
+
+//     const filtered = rows.filter(r => {
+//       const ev = parseFloat(r.Expected_Value);
+//       const odds = parseFloat(r.chosen_odds);
+//       const isValue = r.isValueBet === 'True' || r.isValueBet === 'TRUE' || r.Value_Bet === 'True';
+//       if (!odds || isNaN(ev) || isNaN(odds)) return false;
+//       if (ev < ev_threshold || odds < min_odds || odds > max_odds || !isValue) return false;
+//       // console.log("timeframe", timeframe);
+//       if (timeframe !== "all") {
+//         let cutoff = null;
+//         switch (timeframe.toLowerCase()) {
+//           case '1month': cutoff = latestDate.clone().subtract(1, 'month'); break;
+//           case 'quarter':
+//           case '3months': cutoff = latestDate.clone().subtract(3, 'months'); break;
+//           case '6months': cutoff = latestDate.clone().subtract(6, 'months'); break;
+//           case '1year': cutoff = latestDate.clone().subtract(1, 'year'); break;
+//         }
+//         const parsedDate = moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]);
+//         //console.log("parsedDate", parsedDate)
+//         if (cutoff && !parsedDate.isAfter(cutoff)) return false;
+//       }
+
+//       return true;
+//     });
+
+    
+
+//     console.log("✅ Filtered rows after applying criteria:", filtered.length);
+//     const filteredDates = filtered
+//       .map(r => moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]))
+//       .filter(d => d.isValid());
+
+//     const oldestDate = moment.min(filteredDates);
+//     console.log("📅 Oldest date used in simulation:", oldestDate.format("YYYY-MM-DD"));
+
+
+//     let currentBankroll = parseFloat(bankroll);
+//     const timeline = [];
+//     let wins = 0, losses = 0;
+//     let totalProfit = 0;
+//     let totalLoss = 0;
+//     let peak = bankroll;
+//     let maxDrawdown = 0;
+
+//     for (const r of filtered) {
+//       const odds = parseFloat(r.chosen_odds);
+//       const prob = parseFloat(r.chosen_prob);
+//       const ev = parseFloat(r.Expected_Value);
+//       const date = moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]).format("YYYY-MM-DD");
+
+//       let stake = stake_type === "fixed" ? fixed_stake
+//                 : stake_type === "percent" ? currentBankroll * (percent / 100)
+//                 : ((prob * odds - 1) / (odds - 1)) * currentBankroll;
+
+//       if (stake > currentBankroll || stake <= 0 || isNaN(stake)) continue;
+
+//       const isWin = r.FTR === r.FTR_pred;
+//       const profit = isWin ? stake * (odds - 1) : -stake;
+//       currentBankroll += profit;
+//       isWin ? (wins++, totalProfit += profit) : (losses++, totalLoss += -profit);
+
+//       peak = Math.max(peak, currentBankroll);
+//       const drawdown = ((peak - currentBankroll) / peak) * 100;
+//       maxDrawdown = Math.max(maxDrawdown, drawdown);
+
+//       timeline.push({ date, bankroll: parseFloat(currentBankroll.toFixed(2)) });
+//     }
+
+//     const finalBankroll = parseFloat(currentBankroll.toFixed(2));
+//     const roi = ((finalBankroll - bankroll) / bankroll) * 100;
+//     const winRate = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
+//     const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : null;
+
+//     const dateToBankroll = {};
+//     timeline.forEach(({ date, bankroll }) => {
+//       dateToBankroll[date] = bankroll;
+//     });
+
+//     const sortedDates = Object.keys(dateToBankroll).sort();
+//     const dailyData = sortedDates.map((date, i) => ({
+//       day: i + 1,
+//       date,
+//       bankroll: dateToBankroll[date]
+//     }));
+
+//     const monthlyReturns = [];
+//     let currentMonth = null;
+//     let start = null;
+//     let end = null;
+
+//     dailyData.forEach(({ date, bankroll }) => {
+//       const m = moment(date).format("YYYY-MM");
+//       if (currentMonth !== m) {
+//         if (start && end && currentMonth) {
+//           const ret = ((end - start) / start) * 100;
+//           monthlyReturns.push(parseFloat(ret.toFixed(2)));
+//         }
+//         currentMonth = m;
+//         start = bankroll;
+//       }
+//       end = bankroll;
+//     });
+
+//     res.json({
+//       startingBankroll: parseFloat(bankroll),
+//       finalBankroll,
+//       totalBets: wins + losses,
+//       wonBets: wins,
+//       lostBets: losses,
+//       winRate: parseFloat(winRate.toFixed(2)),
+//       roi: parseFloat(roi.toFixed(2)),
+//       maxDrawdown: parseFloat(maxDrawdown.toFixed(2)),
+//       profitFactor: profitFactor ? parseFloat(profitFactor.toFixed(2)) : null,
+//       dailyData,
+//       monthlyReturns
+//     });
+//   } catch (err) {
+//     console.error("❌ Simulation error:", err.message);
+//     res.status(500).json({ error: "Simulation failed" });
+//   }
+// };
+
+
+
+
 exports.simulateStrategy = async (req, res) => {
   try {
     const {
@@ -351,10 +508,11 @@ exports.simulateStrategy = async (req, res) => {
       stake_type = "fixed",
       fixed_stake = 50,
       percent = 5,
-      ev_threshold = 0,
-      min_odds = 1.01,
-      max_odds = 100,
-      timeframe = "year"
+      kelly_fraction = 0.1,
+      ev_threshold = 0.02,
+      min_odds = 1.5,
+      max_odds = 5.0,
+      timeframe = "3months"
     } = req.body;
 
     console.log("🧪 Simulation params received:", {
@@ -362,6 +520,7 @@ exports.simulateStrategy = async (req, res) => {
       stake_type,
       fixed_stake,
       percent,
+      kelly_fraction,
       ev_threshold,
       min_odds,
       max_odds,
@@ -374,36 +533,31 @@ exports.simulateStrategy = async (req, res) => {
     const latestDate = moment.max(
       rows.map(r => moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]))
     );
-    console.log("The latest date is:", latestDate);
-    
 
     const filtered = rows.filter(r => {
       const ev = parseFloat(r.Expected_Value);
       const odds = parseFloat(r.chosen_odds);
-      const isValue = r.isValueBet === 'True' || r.isValueBet === 'TRUE' || r.Value_Bet === 'True';
+      const isValue = r.isValueBet === 'True' || r.isValueBet === 'TRUE';
       if (!odds || isNaN(ev) || isNaN(odds)) return false;
       if (ev < ev_threshold || odds < min_odds || odds > max_odds || !isValue) return false;
-      // console.log("timeframe", timeframe);
+
       if (timeframe !== "all") {
-        let cutoff = null;
+        let cutoff;
         switch (timeframe.toLowerCase()) {
           case '1month': cutoff = latestDate.clone().subtract(1, 'month'); break;
-          case 'quarter':
-          case '3months': cutoff = latestDate.clone().subtract(3, 'months'); break;
+          case '3months': case 'quarter': cutoff = latestDate.clone().subtract(3, 'months'); break;
           case '6months': cutoff = latestDate.clone().subtract(6, 'months'); break;
           case '1year': cutoff = latestDate.clone().subtract(1, 'year'); break;
         }
         const parsedDate = moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]);
-        //console.log("parsedDate", parsedDate)
         if (cutoff && !parsedDate.isAfter(cutoff)) return false;
       }
 
       return true;
     });
 
-    
-
     console.log("✅ Filtered rows after applying criteria:", filtered.length);
+
     const filteredDates = filtered
       .map(r => moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]))
       .filter(d => d.isValid());
@@ -411,31 +565,44 @@ exports.simulateStrategy = async (req, res) => {
     const oldestDate = moment.min(filteredDates);
     console.log("📅 Oldest date used in simulation:", oldestDate.format("YYYY-MM-DD"));
 
-
     let currentBankroll = parseFloat(bankroll);
     const timeline = [];
     let wins = 0, losses = 0;
     let totalProfit = 0;
     let totalLoss = 0;
-    let peak = bankroll;
+    let peak = currentBankroll;
     let maxDrawdown = 0;
 
     for (const r of filtered) {
       const odds = parseFloat(r.chosen_odds);
-      const prob = parseFloat(r.chosen_prob);
-      const ev = parseFloat(r.Expected_Value);
+      const prob = parseFloat(r.chosen_prob) || 0.5;
       const date = moment(r.Date, ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY"]).format("YYYY-MM-DD");
 
-      let stake = stake_type === "fixed" ? fixed_stake
-                : stake_type === "percent" ? currentBankroll * (percent / 100)
-                : ((prob * odds - 1) / (odds - 1)) * currentBankroll;
+      let stake;
+      if (stake_type === "fixed") {
+        stake = fixed_stake;
+      } else if (stake_type === "percentage" || stake_type === "percent") {
+        stake = currentBankroll * (percent / 100);
+      } else if (stake_type === "kelly") {
+        const b = odds - 1;
+        const q = 1 - prob;
+        const fullKelly = ((b * prob - q) / b) * currentBankroll;
+        stake = fullKelly * kelly_fraction;
+      }
 
       if (stake > currentBankroll || stake <= 0 || isNaN(stake)) continue;
 
       const isWin = r.FTR === r.FTR_pred;
       const profit = isWin ? stake * (odds - 1) : -stake;
       currentBankroll += profit;
-      isWin ? (wins++, totalProfit += profit) : (losses++, totalLoss += -profit);
+
+      if (isWin) {
+        wins++;
+        totalProfit += profit;
+      } else {
+        losses++;
+        totalLoss += -profit;
+      }
 
       peak = Math.max(peak, currentBankroll);
       const drawdown = ((peak - currentBankroll) / peak) * 100;
@@ -444,10 +611,12 @@ exports.simulateStrategy = async (req, res) => {
       timeline.push({ date, bankroll: parseFloat(currentBankroll.toFixed(2)) });
     }
 
-    const finalBankroll = parseFloat(currentBankroll.toFixed(2));
-    const roi = ((finalBankroll - bankroll) / bankroll) * 100;
-    const winRate = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
-    const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : null;
+    const safe = (n, digits = 2) => (typeof n === 'number' && !isNaN(n) ? parseFloat(n.toFixed(digits)) : 0);
+
+    const finalBankroll = safe(currentBankroll);
+    const roi = safe(((finalBankroll - bankroll) / bankroll) * 100);
+    const winRate = safe(wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0);
+    const profitFactor = safe(totalLoss > 0 ? totalProfit / totalLoss : 0);
 
     const dateToBankroll = {};
     timeline.forEach(({ date, bankroll }) => {
@@ -469,9 +638,9 @@ exports.simulateStrategy = async (req, res) => {
     dailyData.forEach(({ date, bankroll }) => {
       const m = moment(date).format("YYYY-MM");
       if (currentMonth !== m) {
-        if (start && end && currentMonth) {
+        if (start !== null && end !== null && currentMonth) {
           const ret = ((end - start) / start) * 100;
-          monthlyReturns.push(parseFloat(ret.toFixed(2)));
+          monthlyReturns.push(safe(ret));
         }
         currentMonth = m;
         start = bankroll;
@@ -479,26 +648,30 @@ exports.simulateStrategy = async (req, res) => {
       end = bankroll;
     });
 
+    if (start !== null && end !== null) {
+      const ret = ((end - start) / start) * 100;
+      monthlyReturns.push(safe(ret));
+    }
+
     res.json({
-      startingBankroll: parseFloat(bankroll),
+      startingBankroll: safe(bankroll),
       finalBankroll,
       totalBets: wins + losses,
       wonBets: wins,
       lostBets: losses,
-      winRate: parseFloat(winRate.toFixed(2)),
-      roi: parseFloat(roi.toFixed(2)),
-      maxDrawdown: parseFloat(maxDrawdown.toFixed(2)),
-      profitFactor: profitFactor ? parseFloat(profitFactor.toFixed(2)) : null,
+      winRate,
+      roi,
+      maxDrawdown: safe(maxDrawdown),
+      profitFactor,
       dailyData,
       monthlyReturns
     });
+
   } catch (err) {
     console.error("❌ Simulation error:", err.message);
     res.status(500).json({ error: "Simulation failed" });
   }
 };
-
-
 
 
 

@@ -78,7 +78,7 @@ const Simulation = () => {
         stake_type: simulationSettings.betSize,
         fixed_stake: simulationSettings.fixedAmount,
         percent: simulationSettings.percentageAmount,
-        kelly_fraction: simulationSettings.kellyFraction,
+        kelly_fraction: simulationSettings.kellyFraction / 100, 
         min_odds: simulationSettings.minOdds,
         max_odds: simulationSettings.maxOdds,
         ev_threshold: simulationSettings.minEv,
@@ -102,6 +102,13 @@ const Simulation = () => {
     alert("Failed to simulate strategy. Please try again.");
   }
 };
+ const safeToFixed = (num, digits) => {
+    return typeof num === 'number' ? num.toFixed(digits) : 'N/A';
+  };
+
+  const safePercent = (num, digits = 1) => {
+    return typeof num === 'number' ? `${num.toFixed(digits)}%` : '0.0%';
+  };
 
   
   // const generateMockResults = () => {
@@ -427,49 +434,47 @@ const Simulation = () => {
       {results && (
         <div className="mt-8">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Simulation Results</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-blue-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-blue-500 uppercase font-medium mb-1">Final Bankroll</div>
-              <div className="text-2xl font-bold text-blue-800">${results.finalBankroll?.toFixed(2) ?? 'N/A'}</div>
-              <div className="text-xs text-blue-400 mt-1">Start: ${results.startingBankroll?.toFixed(2) ?? 'N/A'}</div>
+              <div className="text-2xl font-bold text-blue-800">${safeToFixed(results.finalBankroll, 2)}</div>
+              <div className="text-xs text-blue-400 mt-1">Start: ${safeToFixed(results.startingBankroll, 2)}</div>
             </div>
-            
+
             <div className="bg-green-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-green-500 uppercase font-medium mb-1">Total Return</div>
-              <div className="text-2xl font-bold text-green-800">+{results.roi?.toFixed(1) ?? '0.0'}%</div>
-              <div className="text-xs text-green-400 mt-1">{results.totalBets} bets placed</div>
+              <div className="text-2xl font-bold text-green-800">{safePercent(results.roi)}</div>
+              <div className="text-xs text-green-400 mt-1">{results.totalBets ?? 0} bets placed</div>
             </div>
-            
+
             <div className="bg-gray-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-gray-500 uppercase font-medium mb-1">Win Rate</div>
-              <div className="text-2xl font-bold text-gray-800">{results.winRate?.toFixed(1) ?? '0.0'}%</div>
-              <div className="text-xs text-gray-400 mt-1">{results.wonBets}W - {results.lostBets}L</div>
+              <div className="text-2xl font-bold text-gray-800">{safePercent(results.winRate)}</div>
+              <div className="text-xs text-gray-400 mt-1">{results.wonBets ?? 0}W - {results.lostBets ?? 0}L</div>
             </div>
-            
+
             <div className="bg-purple-50 rounded-lg p-4 shadow-sm">
               <div className="text-sm text-purple-500 uppercase font-medium mb-1">Max Drawdown</div>
-              <div className="text-2xl font-bold text-purple-800">{results.maxDrawdown?.toFixed(1) ?? '0.0'}%</div>
-              <div className="text-xs text-purple-400 mt-1">Profit Factor: {results.profitFactor?.toFixed(2) ?? '1.00'}</div>
+              <div className="text-2xl font-bold text-purple-800">{safePercent(results.maxDrawdown)}</div>
+              <div className="text-xs text-purple-400 mt-1">Profit Factor: {safeToFixed(results.profitFactor, 2)}</div>
             </div>
           </div>
-          
-          {/* Bankroll Chart */}
+
           <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
             <h4 className="text-lg font-medium text-gray-900 mb-4">Bankroll Growth</h4>
             <div className="h-64 bg-gray-50 rounded flex items-center justify-center">
               <p className="text-gray-500">Bankroll growth chart would appear here</p>
             </div>
           </div>
-          
-          {/* Monthly Returns */}
+
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <h4 className="text-lg font-medium text-gray-900 mb-4">Monthly Returns</h4>
             <div className="grid grid-cols-6 gap-2">
-              {Array.isArray(results.monthlyReturns) && results.monthlyReturns.map((returnValue, index) => (
+              {(results.monthlyReturns ?? []).map((returnValue, index) => (
                 <div key={index} className="text-center">
                   <div className="h-24 flex flex-col justify-end">
-                    <div 
+                    <div
                       className={`w-full mx-auto ${returnValue >= 0 ? 'bg-green-500' : 'bg-red-500'}`}
                       style={{ height: `${Math.abs(returnValue) * 4}px` }}
                     ></div>
