@@ -157,6 +157,7 @@ exports.placeBet = async (req, res) => {
 
     const actualResult = match.FTR?.trim();
     const predictedResult = match.FTR_pred?.trim();
+    const isValueBet = match.isValueBet?.trim();
 
     const isCorrect = actualResult && predictedResult && actualResult === predictedResult;
     const odds = parseFloat(match.chosen_odds);
@@ -173,7 +174,8 @@ exports.placeBet = async (req, res) => {
       result: actualResult || "N/A",
       status: isCorrect ? "won" : "lost",
       payout: isCorrect ? odds * stake : 0,
-      profit
+      profit,
+      isValueBet
     });
 
     await bet.save();
@@ -300,10 +302,17 @@ exports.getAnalytics = async (req, res) => {
 
     const streaks = calculateStreaks(filtered);
 
+    console.log("filtered", filtered);
+
     // ✅ Corrected AI Accuracy block
-    const aiBets = filtered.filter(bet => bet.isValueBet === true);
+    const aiBets = filtered.filter(
+      bet => bet.isValueBet === true || bet.isValueBet === 'True' || bet.isValueBet === 'TRUE'
+    );
+    console.log("aiBets", aiBets);
     const correctAIPredictions = aiBets.filter(bet => bet.status === 'won').length;
-    const aiAccuracy = aiBets.length > 0 ? (correctAIPredictions / aiBets.length) * 100 : null;
+    const aiAccuracy = aiBets.length > 0 ? (correctAIPredictions / aiBets.length) * 100 : 0;
+    
+    console.log("AAAAAAAAAAAAAAAAAAA", aiAccuracy)
 
     // ✅ Sport Breakdown
     const sportMap = {};
@@ -332,7 +341,7 @@ exports.getAnalytics = async (req, res) => {
       maxProfit: parseFloat(maxProfit.toFixed(2)),
       maxLoss: parseFloat(maxLoss.toFixed(2)),
       streaks,
-      aiAccuracy: aiAccuracy !== null ? parseFloat(aiAccuracy.toFixed(2)) : null,
+      aiAccuracy: aiAccuracy !== null ? parseFloat(aiAccuracy.toFixed(2)) : 0,
       sportBreakdown,
       dailyProfitLoss
     });

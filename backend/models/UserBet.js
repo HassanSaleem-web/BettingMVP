@@ -11,7 +11,8 @@ const UserBetSchema = new mongoose.Schema({
     status: { type: String, enum: ["won", "lost", "pending"], default: "pending" }, // win/loss
     profit: Number, // net profit/loss from this bet
     payout: Number, // total return (stake * odds if won, else 0)
-    placed_at: Date
+    placed_at: Date,
+    isValueBet: String,
 });
 
 module.exports = mongoose.model('UserBet', UserBetSchema);
