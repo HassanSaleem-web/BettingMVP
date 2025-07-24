@@ -200,40 +200,69 @@ exports.getUserBets = async (req, res) => {
 
 // ✅ 5. All model-evaluated bets
 exports.getAllBets = async (req, res) => {
-    try {
-        const rows = await loadValueBetsCSV();
+  try {
+    const rows = await loadValueBetsCSV();
 
-        const filtered = rows.filter(r =>
-            r.HomeTeam && r.AwayTeam &&
-            r.chosen_odds && r.chosen_prob && r.Expected_Value &&
-            parseFloat(r.Expected_Value) <= 0.5
-        );
+    const filtered = rows.filter(r =>
+      r.HomeTeam && r.AwayTeam &&
+      r.chosen_odds && r.chosen_prob && r.Expected_Value &&
+      parseFloat(r.Expected_Value) <= 0.5
+    );
 
+    const dayOffset = new Date().getDate();
+    const startIndex = (dayOffset * 20) % filtered.length;
+    const endIndex = startIndex + 20;
 
-        // ✅ Daily Offset Calculation
-        const dayOffset = new Date().getDate(); // e.g. 1 to 31
-        const startIndex = (dayOffset * 20) % filtered.length;
-        const endIndex = startIndex + 20;
+    const leagueMap = {
+      '0': 'Bundesliga',
+      '1': 'Barclays Premier League',
+      '2': 'Ligue 1',
+      '3': 'Serie A',
+      '4': 'La Liga'
+    };
 
-        const sliced = filtered.slice(startIndex, endIndex);
+    const sliced = filtered.slice(startIndex, endIndex);
 
-        const allBets = sliced.map(r => ({
-            match_id: generateMatchId(r.HomeTeam, r.AwayTeam, r.Date || ''),
-            team1: r.HomeTeam,
-            team2: r.AwayTeam,
-            sport: r.Sport || 'Football',
-            odds: parseFloat(r.chosen_odds),
-            predicted_win_prob: parseFloat(r.chosen_prob),
-            expected_value: parseFloat(r.Expected_Value),
-            isValueBet: r.isValueBet === 'True' || r.isValueBet === 'TRUE'
-        }));
+    const allBets = sliced.map(r => {
+      const odds = parseFloat(r.chosen_odds);
+      const prob = parseFloat(r.chosen_prob);
+      const ev = parseFloat(r.Expected_Value);
+      const impliedProb = 1 / odds;
 
-        res.json(allBets);
-    } catch (err) {
-        console.error('Error loading all bets:', err.message);
-        res.status(500).json({ error: 'Failed to load all bets' });
-    }
+      let selection = 'N/A';
+      if (r.FTR_pred?.trim() === 'H') selection = 'Home Win';
+      else if (r.FTR_pred?.trim() === 'A') selection = 'Away Win';
+      else if (r.FTR_pred?.trim() === 'D') selection = 'Draw';
+
+      const reason = `Model predicts ${(prob * 100).toFixed(1)}% win probability, but implied odds only ${(impliedProb * 100).toFixed(1)}% → EV: ${(ev * 100).toFixed(1)}%`;
+
+      return {
+        date: r.Date,
+        match_id: generateMatchId(r.HomeTeam, r.AwayTeam, r.Date || ''),
+        team1: r.HomeTeam,
+        team2: r.AwayTeam,
+        sport: r.Sport || 'Football',
+        league: leagueMap[r.Div_enc?.trim()] || 'Unknown',
+        odds,
+        predicted_win_prob: prob,
+        expected_value: ev,
+        isValueBet: r.isValueBet === 'True' || r.isValueBet === 'TRUE',
+        selection,
+        reason,
+        home_win_odds: parseFloat(r.Est_BbAvH) || null,
+        draw_odds: parseFloat(r.Est_BbAvD) || null,
+        away_win_odds: parseFloat(r.Est_BbAvA) || null
+      };
+    });
+
+    res.json(allBets);
+  } catch (err) {
+    console.error('Error loading all bets:', err.message);
+    res.status(500).json({ error: 'Failed to load all bets' });
+  }
 };
+
+
 
 
 
