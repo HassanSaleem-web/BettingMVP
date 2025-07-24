@@ -9,6 +9,26 @@ const Dashboard = ({username}) => {
   const [bets, setBets] = useState([]);
   const location = useLocation();
 
+  const [filters, setFilters] = useState({
+  date: '',
+  league: '',
+  team: '',
+  valueOnly: false
+});
+
+  const filteredBets = bets.filter(b => {
+    const matchDate = b.date?.slice(0, 10); // YYYY-MM-DD
+    const leagueMatch = filters.league ? b.league === filters.league : true;
+    const teamMatch = filters.team
+      ? b.team1.toLowerCase().includes(filters.team) || b.team2.toLowerCase().includes(filters.team)
+      : true;
+    const dateMatch = filters.date ? matchDate === filters.date : true;
+    const valueMatch = filters.valueOnly ? b.isValueBet : true;
+
+    return leagueMatch && teamMatch && dateMatch && valueMatch;
+  });
+
+
   useEffect(() => {
     const fetchBets = async () => {
       try {
@@ -126,6 +146,52 @@ const Dashboard = ({username}) => {
         </div>
       </div>
 
+      {/* Filters */}
+<div className="bg-white rounded-lg shadow p-4 space-y-4">
+  <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    {/* Date Filter */}
+    <input
+      type="date"
+      className="border border-gray-300 rounded px-3 py-2"
+      value={filters.date}
+      onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+    />
+
+    {/* League Filter */}
+    <select
+      className="border border-gray-300 rounded px-3 py-2"
+      value={filters.league}
+      onChange={(e) => setFilters({ ...filters, league: e.target.value })}
+    >
+      <option value="">All Leagues</option>
+      {Array.from(new Set(bets.map(b => b.league))).map((lg, i) => (
+        <option key={i} value={lg}>{lg}</option>
+      ))}
+    </select>
+
+    {/* Team Filter */}
+    <input
+      type="text"
+      placeholder="Search team"
+      className="border border-gray-300 rounded px-3 py-2"
+      value={filters.team}
+      onChange={(e) => setFilters({ ...filters, team: e.target.value.toLowerCase() })}
+    />
+
+      {/* Value Bet Toggle */}
+      <label className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          checked={filters.valueOnly}
+          onChange={(e) => setFilters({ ...filters, valueOnly: e.target.checked })}
+        />
+        <span className="text-sm text-gray-700">Only Value Bets</span>
+      </label>
+    </div>
+  </div>
+
+
       {/* View Toggle */}
       <div className="flex justify-between items-center">
         <div className="bg-white rounded-lg shadow p-1 inline-flex">
@@ -148,17 +214,22 @@ const Dashboard = ({username}) => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Match', 'Sport', 'Bookmaker Odds', 'Our Probability', 'Expected Value', 'Value Bet', 'Actions'].map(h => (
+                  {['Date', 'Match', 'Sport', 'League', 'Bookmaker Odds', 'Home Win', 'Draw', 'Away Win', 'Our Probability', 'Expected Value', 'Value Bet', 'Actions'].map(h => (
                     <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {bets.map((bet) => (
+                {filteredBets.map((bet) => (
                   <tr key={bet.match_id} className={bet.isValueBet ? 'bg-green-50' : ''}>
+                    <td className="px-6 py-4 text-sm text-gray-500">{bet.date}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bet.team1} vs {bet.team2}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{bet.sport}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{bet.league}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{bet.odds?.toFixed(2)??'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{bet.home_win_odds?.toFixed(2) ?? 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{bet.draw_odds?.toFixed(2) ?? 'N/A'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{bet.away_win_odds?.toFixed(2) ?? 'N/A'}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{(bet.predicted_win_prob * 100)?.toFixed(1)??'N/A'}%</td>
                     <td className={`px-6 py-4 text-sm font-medium ${bet.expected_value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {(bet.expected_value * 100)?.toFixed(2)??'N/A'}%
