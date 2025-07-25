@@ -145,8 +145,6 @@ exports.getValueBets = async (req, res) => {
 exports.placeBet = async (req, res) => {
   try {
     const { user_id, match_id, stake } = req.body;
-    console.log("userrrrrr",user_id);
-     console.log("match id",match_id);
     const rows = await loadValueBetsCSV();
 
     const match = rows.find(r =>
