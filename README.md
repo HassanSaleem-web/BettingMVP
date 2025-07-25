@@ -1,139 +1,228 @@
-# AI-Driven Sports Betting System
 
-A production-ready AI-driven sports betting system that uses machine learning to predict the outcome of sports events and identify value bets.
+# 🧠 AI-Driven Sports Betting System (Full Stack)
 
-## Project Structure
+A production-ready AI-powered sports betting platform that uses machine learning to predict football match outcomes, identify value bets, and allow users to simulate bets with interactive tracking, analytics, and profit monitoring.
+
+---
+
+## ⚙️ Tech Stack
+
+| Layer        | Stack / Tool                 |
+| ------------ | ---------------------------- |
+| Frontend     | React, Tailwind CSS          |
+| Backend      | Node.js, Express.js, MongoDB |
+| AI/ML Engine | Python, pandas, scikit-learn |
+| Database     | MongoDB via Mongoose         |
+| Deployment   | Render / Localhost (dev)     |
+
+---
+
+## 🗂️ Project Structure
 
 ```
-sport-betting-mvp/
+.
 ├── backend/
-│   ├── main.py              # FastAPI backend app
-│   ├── ml_model.py          # ML prediction model
-│   ├── data/                # Sample sports odds & historical data
-│   └── requirements.txt     # Python dependencies
+│   ├── ai_model/
+│   │   ├── 1_model_run.py            # Main prediction script
+│   │   ├── 2_model_run.py            # Meta-model evaluator
+│   │   ├── model/                    # Stored ML models (.joblib)
+│   │   └── *.csv                     # Prediction output data
+│   ├── controllers/                 # Express route handlers
+│   ├── middleware/                  # JWT middleware etc.
+│   ├── models/                      # Mongoose schemas
+│   ├── routes/                      # Express route declarations
+│   ├── utils/                       # Match ID generator etc.
+│   ├── server.js                    # Entry point
+│   ├── .env                         # Mongo URI and config
+│   └── package.json                 # Backend dependencies
+│
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js           # React main app
-│   │   ├── components/      # UI components
-│   │   └── index.js         # React entry point
-│   ├── public/              # Static assets
-│   └── package.json         # NPM dependencies
-├── README.md                # This file
-└── working.md               # Detailed usage guide
+│   │   ├── App.js                   # Main React app
+│   │   ├── components/             # BetTable, Auth etc.
+│   ├── .env                        # REACT_APP_API_URL
+│   └── package.json               # Frontend dependencies
+│
+├── README.md                       # This file
+└── working.md                     # Developer Notes
 ```
 
-## Features
+---
 
-- **Real-time Odds Monitoring**: Monitors betting odds from bookmakers
-- **AI Prediction Engine**: ML model that predicts true win probabilities
-- **Value Bet Detection**: Identifies bets with positive expected value (EV)
-- **Interactive Dashboard**: Visual representation of betting opportunities
-- **Real-time Notifications**: Alerts for new value bets
-- **User Authentication**: Secure login system
+## 🧠 AI Betting Model (How It Works)
 
-## Technology Stack
+### `1_model_run.py` — Match Outcome Prediction
 
-- **Backend**: Python with FastAPI
-- **Frontend**: React with Chart.js for visualization
-- **Styling**: Tailwind CSS
-- **ML Model**: Advanced prediction algorithms
+1. Loads historical feature data from `Cleaned_Enhanced_All_Seasons_Features.csv`.
+2. Predicts outcome using a calibrated classification model.
+3. Estimates win probabilities (`Prob_H`, `Prob_D`, `Prob_A`).
+4. Converts to **implied odds**: `Est_BbAvH`, `Est_BbAvD`, `Est_BbAvA`.
+5. Chooses best bet based on highest predicted probability.
+6. Calculates:
 
-## Quick Start
+   * Expected Value: `EV = prob * odds - 1`
+   * Confidence
+   * Probability spread
+   * Kelly stake sizing
 
-See [working.md](working.md) for detailed setup and usage instructions.
+✅ Outputs to: `ValueBets_Deployable.csv`
 
-### Backend Setup
+---
 
-1. Navigate to the backend directory:
-   ```
-   cd sport-betting-mvp/backend
-   ```
+### `2_model_run.py` — Meta Success Filter
 
-2. Create a virtual environment and activate it:
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+1. Loads the value bets file.
+2. Uses trained `meta_model.joblib` to compute `meta_success_prob`.
+3. Applies filters:
 
-3. Install the dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+   * `Expected_Value > 0`
+   * `meta_success_prob > 0.55`
+4. Flags `isValueBet = True` if filters pass.
 
-4. Start the FastAPI server:
-   ```
-   uvicorn main:app --reload
-   ```
+✅ Overwrites `ValueBets_Deployable.csv` with `isValueBet` flag.
 
-   The API will be available at http://localhost:8000
+---
 
-### Frontend Setup
+## 💻 Backend (Node.js + Express)
 
-1. Navigate to the frontend directory:
-   ```
-   cd sport-betting-mvp/frontend
-   ```
+### Key Features
 
-2. Install the dependencies:
-   ```
-   npm install
-   ```
+* Stores user bets via `/api/bets/add`
+* Supports status updates (win/loss) and deletion (soft delete)
+* Loads all available bets from the AI CSV output via `/api/bets/valuebets`
+* MongoDB used to persist user-specific bet history
 
-3. Start the development server:
-   ```
-   npm start
-   ```
+### Run Backend
 
-   The app will be available at http://localhost:3000
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-## Authentication
+`.env` file format:
 
-The system uses a secure authentication system. To log in:
+```env
+MONGO_URI=mongodb+srv://<your_mongo_connection>
+PORT=5000
+```
 
-- Username: `Admin`
-- Password: `Admin`
+---
 
-## How It Works
+## 🖥️ Frontend (React)
 
-1. **Data Collection**: The system fetches odds data from bookmakers
-2. **AI Prediction**: The ML model predicts win probabilities by analyzing historical data and current statistics
-3. **Expected Value Calculation**: EV = (Predicted Probability × Bookmaker Odds) - 1
-4. **Value Bet Identification**: Bets with positive EV are flagged as value bets
-5. **User Notification**: Value bets trigger notifications to alert users of profitable opportunities
+### Features
 
-## User Interface
+* Interactive dashboard with:
 
-- **Login Screen**: Secure authentication
-- **Dashboard**: Stats overview and bet analysis
-- **Table View**: Detailed view of all analyzed bets
-- **Chart View**: Visual representation of expected values
-- **Notifications**: Real-time alerts for value bets
+  * Bet placement
+  * Historical P/L tracking
+  * ROI display
+  * Match breakdown (Home/Draw/Away odds)
+* Real-time visual updates
+* Authentication (basic)
 
-## API Endpoints
+### Run Frontend
 
-- **Health Check**: `GET /health`
-- **Prediction**: `POST /predict`
-  
-  Request:
-  ```json
+```bash
+cd frontend
+npm install
+npm start
+```
+
+`.env` file format:
+
+```env
+REACT_APP_API_URL=http://localhost:5000/api
+```
+
+---
+
+## 🧮 Odds & Probability Explanation
+
+For each match:
+
+* `FTR_pred`: predicted result ("H", "D", "A")
+* `Prob_H/D/A`: win/draw/lose probabilities
+* `Est_BbAvH/D/A`: implied odds (1 / implied prob)
+* `chosen_prob`, `chosen_odds`: highest confidence selection
+* `Expected_Value`: indicates if it's a "value bet"
+* `Kelly`: bet sizing suggestion using Kelly Criterion
+* `isValueBet`: final filter used by the app
+
+---
+
+## 🧪 Example API Responses
+
+### `POST /api/bets/add`
+
+```json
+{
+  "user_id": "user123",
+  "match_id": "2023-08-21-TEAM1-TEAM2",
+  "sport": "Football",
+  "stake": 50,
+  "odds": 2.1
+}
+```
+
+### `GET /api/bets/user-bets`
+
+```json
+[
   {
-    "sport": "Football",
-    "match_id": 101,
-    "bookmaker_odds": 2.1
+    "_id": "...",
+    "user_id": "user123",
+    "match_id": "2023-08-21-TEAM1-TEAM2",
+    "stake": 50,
+    "odds": 2.1,
+    "status": "won",
+    "profit": 55,
+    ...
   }
-  ```
-  
-  Response:
-  ```json
-  {
-    "match_id": 101,
-    "predicted_win_prob": 0.523,
-    "bookmaker_odds": 2.1,
-    "expected_value": 0.098,
-    "value_bet": true
-  }
-  ```
+]
+```
 
-## License
+---
 
-This project is for demonstration purposes only. 
+## 🧠 AI Model Outputs (CSV)
+
+| Column          | Description                       |
+| --------------- | --------------------------------- |
+| FTR\_pred       | Predicted full-time result        |
+| Prob\_H/D/A     | ML confidence for each outcome    |
+| Est\_BbAvH/D/A  | Estimated odds for each outcome   |
+| chosen\_odds    | Selected odds based on prediction |
+| chosen\_prob    | ML probability for chosen bet     |
+| Expected\_Value | EV = prob × odds − 1              |
+| Kelly           | Kelly stake %                     |
+| isValueBet      | Final boolean filter (meta-model) |
+
+---
+
+## 📊 Frontend Dashboard (React)
+
+* Displays user bets in a table with:
+
+  * Match
+  * Date
+  * Stake
+  * Odds
+  * Outcome (P/L)
+  * Est\_BbAvH/D/A values shown under Odds breakdown
+* Action buttons: Cancel bet (if pending)
+
+---
+
+## 🧠 Deployment Notes
+
+* `ValueBets_Deployable.csv` can be regenerated by running both Python scripts.
+* Backend auto-loads latest CSV when required.
+* Future feature: auto-run Python prediction on CRON every 6 hours.
+
+---
+
+## 📜 License
+
+For research and development use only. Not to be used for real-money betting without legal compliance.
+
