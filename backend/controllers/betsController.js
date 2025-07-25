@@ -144,7 +144,9 @@ exports.getValueBets = async (req, res) => {
 // ✅ 3. Place a bet
 exports.placeBet = async (req, res) => {
   try {
-    const { username, match_id, stake } = req.body;
+    const { user_id, match_id, stake } = req.body;
+    console.log("userrrrrr",user_id);
+     console.log("match id",match_id);
     const rows = await loadValueBetsCSV();
 
     const match = rows.find(r =>
@@ -164,7 +166,7 @@ exports.placeBet = async (req, res) => {
     const profit = isCorrect ? (odds * stake - stake) : -stake;
 
     const bet = new UserBet({
-      user_id: username,
+      user_id,
       match_id,
       stake,
       sport: "Football",
@@ -191,12 +193,25 @@ exports.placeBet = async (req, res) => {
 exports.getUserBets = async (req, res) => {
     try {
         const { user_id } = req.query;
+        console.log('user id', user_id)
         const bets = await UserBet.find({ user_id }).sort({ placed_at: -1 });
         res.json(bets);
     } catch (err) {
         res.status(500).json({ error: 'Failed to load user bets' });
     }
 };
+
+exports.deleteUserBet = async (req, res) => {
+  try {
+    const { bet_id } = req.body;
+    const bet = await UserBet.findByIdAndUpdate(bet_id, { isDeleted: true }, { new: true });
+    if (!bet) return res.status(404).json({ error: "Bet not found" });
+    res.json({ message: "Bet marked as deleted", bet });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete bet" });
+  }
+};
+
 
 // ✅ 5. All model-evaluated bets
 exports.getAllBets = async (req, res) => {

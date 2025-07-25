@@ -192,7 +192,7 @@ const AppContent = ({
             ) : (
               <>
                 <Route path="/dashboard" element={<Dashboard username={username} />} />
-                <Route path="/value-bets" element={<ValueBets bets={bets} />} />
+                <Route path="/value-bets" element={<ValueBets username={username} />} />
                 <Route path="/my-bets" element={<MyBets username={username}/>} />
                 <Route path="/analytics" element={<Analytics username={username}/>} />
                 <Route path="/simulation" element={<Simulation />} />

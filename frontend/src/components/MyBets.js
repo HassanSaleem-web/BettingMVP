@@ -4,12 +4,36 @@ const MyBets = ({ username }) => {
   const [bets, setBets] = useState([]);
   const [growth, setGrowth] = useState([]);
 
+
+  const handleDeleteBet = async (betId) => {
+
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/delete-bet`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ bet_id: betId })
+      });
+
+      if (res.ok) {
+        setBets(prev => prev.filter(b => b._id !== betId));
+      } else {
+        alert("❌ Failed to delete bet.");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("❌ Error deleting bet.");
+    }
+  };
+
   useEffect(() => {
     const fetchUserBets = async () => {
       try {
         const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/user-bets?user_id=${username}`);
 
         const data = await res.json();
+        console.log("user Btes",data )
         setBets(data);
       } catch (err) {
         console.error("Failed to fetch user bets", err);
@@ -25,6 +49,8 @@ const MyBets = ({ username }) => {
         console.error("Failed to fetch bankroll growth", err);
       }
     };
+
+
 
     if (username) {
       fetchUserBets();
@@ -105,6 +131,7 @@ const MyBets = ({ username }) => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stake</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">P/L</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -133,6 +160,20 @@ const MyBets = ({ username }) => {
 
                   )}
                 </td>
+                <td className="px-6 py-4 text-sm">
+                <button
+                  onClick={() => handleDeleteBet(bet._id, bet.status)}
+                  className={`text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded-md text-sm whitespace-nowrap ${
+                    bet.status === "pending" ? "cursor-not-allowed opacity-50" : ""
+                  }`}
+                  title={bet.status === "pending" ? "Cannot delete pending bets" : "Delete this bet"}
+                  disabled={bet.status === "pending"}
+                >
+                  Delete
+                </button>
+              </td>
+
+
               </tr>
             ))}
           </tbody>

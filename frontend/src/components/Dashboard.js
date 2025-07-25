@@ -58,7 +58,7 @@ const Dashboard = ({username}) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: username, // Replace with actual auth ID
+          user_id: username, // Replace with actual auth ID
           match_id: bet.match_id,
           stake: stake
         })
