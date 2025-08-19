@@ -4,6 +4,7 @@ const controller = require('../controllers/betsController');
 
 router.get('/value-bets', controller.getValueBets);
 router.post('/place-bet', controller.placeBet);
+router.post('/update-results', controller.updateResults);
 router.get('/user-bets', controller.getUserBets);
 router.post('/delete-bet', controller.deleteUserBet);
 router.get('/all-bets', controller.getAllBets);

@@ -4,7 +4,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const modelRoutes = require('./routes/model');
-const betsRoutes = require('./routes/bets')
+const betsRoutes = require('./routes/bets');
+const dataRoutes = require('./routes/data');
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/model', modelRoutes);
 app.use('/api/bets', betsRoutes);
+app.use('/api/data', dataRoutes);
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI).then(() => {

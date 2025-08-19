@@ -59,7 +59,7 @@ const ValueBets = ({ username }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: username,
-          match_id: bet.match_id,
+          fixture_id: bet.match_id,
           stake: stake
         })
       });
