@@ -112,94 +112,104 @@ exports.getValueBets = async(req, res) => {
 };
 
 // ✅ 3. Place a bet
-exports.placeBet = async (req, res) => {
-  console.log("Bet placed");
-  try {
-    const { user_id, fixture_id, stake } = req.body;
-    console.log( user_id, fixture_id, stake)
+exports.placeBet = async(req, res) => {
+    console.log("Bet placed");
+    try {
+        const { user_id, fixture_id, stake } = req.body;
+        console.log(user_id, fixture_id, stake)
 
-    const rows = await loadValueBetsCSV();
-    const match = rows.find(r => r.fixtureId?.toString() === fixture_id);
+        const rows = await loadValueBetsCSV();
+        const match = rows.find(r => r.fixtureId ?.toString() === fixture_id);
 
-    if (!match) {
-      return res.status(404).json({ error: 'Match not found in CSV' });
+        if (!match) {
+            return res.status(404).json({ error: 'Match not found in CSV' });
+        }
+
+        const existingBet = await UserBet.findOne({ user_id, fixture_id });
+        if (existingBet) {
+            return res.status(400).json({ message: 'You already placed a bet on this match.' });
+        }
+
+        const odds = parseFloat(match.chosen_odds);
+        const isValueBet = match.isValueBet ?.trim();
+
+        const bet = new UserBet({
+            user_id,
+            fixture_id,
+            stake,
+            sport: "Football",
+            odds,
+            ev: parseFloat(match.Expected_Value),
+            placed_at: new Date(),
+            payout: 0,
+            profit: 0,
+            isValueBet
+        });
+
+        await bet.save();
+        res.json({ message: 'Bet placed successfully', bet });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to place bet' });
     }
-
-    const existingBet = await UserBet.findOne({ user_id, fixture_id });
-    if (existingBet) {
-      return res.status(400).json({ message: 'You already placed a bet on this match.' });
-    }
-
-    const odds = parseFloat(match.chosen_odds);
-    const isValueBet = match.isValueBet?.trim();
-
-    const bet = new UserBet({
-      user_id,
-      fixture_id,
-      stake,
-      sport: "Football",
-      odds,
-      ev: parseFloat(match.Expected_Value),
-      placed_at: new Date(),
-      payout: 0,
-      profit: 0,
-      isValueBet
-    });
-
-    await bet.save();
-    res.json({ message: 'Bet placed successfully', bet });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to place bet' });
-  }
 };
 
 
-exports.getBankrollGrowth = async(req, res) => { try { const { user_id } = req.query; const bets = await UserBet.find({ user_id, status: { $ne: 'pending' } }).sort({ placed_at: 1 }); let bankroll = 1000; const growth = []; for (const bet of bets) { bankroll += bet.profit || 0;
-            growth.push({ date: new Date(bet.placed_at).toISOString().split('T')[0], bankroll: parseFloat(bankroll.toFixed(2)) }); }
-        res.json(growth); } catch (err) { console.error(err);
-        res.status(500).json({ message: 'Failed to calculate bankroll growth' }); } };
+exports.getBankrollGrowth = async(req, res) => {
+    try {
+        const { user_id } = req.query;
+        const bets = await UserBet.find({ user_id, status: { $ne: 'pending' } }).sort({ placed_at: 1 });
+        let bankroll = 1000;
+        const growth = [];
+        for (const bet of bets) {
+            bankroll += bet.profit || 0;
+            growth.push({ date: new Date(bet.placed_at).toISOString().split('T')[0], bankroll: parseFloat(bankroll.toFixed(2)) });
+        }
+        res.json(growth);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Failed to calculate bankroll growth' });
+    }
+};
 
 
 // ✅ 4. User bet history
-exports.getUserBets = async (req, res) => {
-  try {
-    const { user_id } = req.query;
-    console.log('user id', user_id);
+exports.getUserBets = async(req, res) => {
+    try {
+        const { user_id } = req.query;
+        console.log('user id', user_id);
 
-    // Get user bets
-    const bets = await UserBet.find({ user_id }).sort({ placed_at: -1 });
+        // Get user bets
+        const bets = await UserBet.find({ user_id }).sort({ placed_at: -1 });
 
-    if (!bets.length) {
-      return res.json([]);
+        if (!bets.length) {
+            return res.json([]);
+        }
+
+        // Extract all fixtureIds from bets
+        const fixtureIds = bets.map(b => b.fixture_id);
+        // Fetch corresponding fixtures
+        const fixtures = await Fixture.find({ fixtureId: { $in: fixtureIds } });
+
+        // Attach home vs away info to each bet
+        const betsWithTeams = bets.map(bet => {
+            const fixture = fixtures.find(
+                f => f.fixtureId.toString() === bet.fixture_id.toString()
+            );
+            return {
+                ...bet.toObject(),
+                match: fixture ?
+                    `${fixture.homeTeam?.name} vs ${fixture.awayTeam?.name}` :
+                    "Fixture not found"
+            };
+        });
+
+
+        res.json(betsWithTeams);
+    } catch (err) {
+        console.error("Error in getUserBets:", err);
+        res.status(500).json({ error: "Failed to load user bets" });
     }
-
-    // Extract all fixtureIds from bets
-    const fixtureIds = bets.map(b => b.fixture_id);
-    // Fetch corresponding fixtures
-    const fixtures = await Fixture.find({ fixtureId: { $in: fixtureIds } });
-    
-    
-
-    // Attach home vs away info to each bet
-    const betsWithTeams = bets.map(bet => {
-    const fixture = fixtures.find(
-        f => f.fixtureId.toString() === bet.fixture_id.toString()
-    );
-    return {
-        ...bet.toObject(),
-        match: fixture
-        ? `${fixture.homeTeam?.name} vs ${fixture.awayTeam?.name}`
-        : "Fixture not found"
-    };
-    });
-
-
-    res.json(betsWithTeams);
-  } catch (err) {
-    console.error("Error in getUserBets:", err);
-    res.status(500).json({ error: "Failed to load user bets" });
-  }
 };
 
 
@@ -218,16 +228,11 @@ exports.deleteUserBet = async(req, res) => {
 exports.getAllBets = async(req, res) => {
     try {
         const rows = await loadValueBetsCSV();
+        console.log(`[getAllBets] total_rows_loaded=${rows.length}`);
 
-        const filtered = rows.filter(r =>
-            r.HomeTeam && r.AwayTeam &&
-            r.chosen_odds && r.chosen_prob && r.Expected_Value &&
-            parseFloat(r.Expected_Value) <= 0.5
-        );
-
-        const dayOffset = new Date().getDate();
-        const startIndex = (dayOffset * 20) % filtered.length;
-        const endIndex = startIndex + 20;
+        // Filter out rows that have missing features only
+        const usable = rows.filter(r => String(r.reason || '').trim().toLowerCase() !== 'missing_features');
+        console.log(`[getAllBets] removed_missing_features=${rows.length - usable.length} usable=${usable.length}`);
 
         const leagueMap = {
             '0': 'Bundesliga',
@@ -237,40 +242,49 @@ exports.getAllBets = async(req, res) => {
             '4': 'La Liga'
         };
 
-        const sliced = filtered.slice(startIndex, endIndex);
-
-        const allBets = sliced.map(r => {
+        // No slicing; map over all usable rows
+        const allBets = usable.map(r => {
             const odds = parseFloat(r.chosen_odds);
             const prob = parseFloat(r.chosen_prob);
             const ev = parseFloat(r.Expected_Value);
-            const impliedProb = 1 / odds;
 
             let selection = 'N/A';
-            if (r.FTR_pred ?.trim() === 'H') selection = 'Home Win';
-            else if (r.FTR_pred ?.trim() === 'A') selection = 'Away Win';
-            else if (r.FTR_pred ?.trim() === 'D') selection = 'Draw';
+            const pred = r.FTR_pred ?.trim ?.();
+            if (pred === 'H') selection = 'Home Win';
+            else if (pred === 'A') selection = 'Away Win';
+            else if (pred === 'D') selection = 'Draw';
 
-            const reason = `Model predicts ${(prob * 100).toFixed(1)}% win probability, but implied odds only ${(impliedProb * 100).toFixed(1)}% → EV: ${(ev * 100).toFixed(1)}%`;
+            // Prefer CSV-provided reason; otherwise compute if possible; else fallback
+            let reason = String(r.reason || '').trim();
+            if (!reason) {
+                if (Number.isFinite(odds) && odds > 0 && Number.isFinite(prob) && Number.isFinite(ev)) {
+                    const impliedProb = 1 / odds;
+                    reason = `Model predicts ${(prob * 100).toFixed(1)}% win probability, but implied odds only ${(impliedProb * 100).toFixed(1)}% → EV: ${(ev * 100).toFixed(1)}%`;
+                } else {
+                    reason = 'odds_unavailable';
+                }
+            }
 
             return {
                 date: r.Date,
-                match_id: r.fixtureId,
+                match_id: r.fixtureId, // using fixtureId as match_id
                 team1: r.HomeTeam,
                 team2: r.AwayTeam,
                 sport: r.Sport || 'Football',
-                league: leagueMap[r.Div_enc ?.trim()] || 'Unknown',
-                odds,
-                predicted_win_prob: prob,
-                expected_value: ev,
+                league: leagueMap[r.Div_enc ?.trim ?.()] || 'Unknown',
+                odds: Number.isFinite(odds) ? odds : null,
+                predicted_win_prob: Number.isFinite(prob) ? prob : null,
+                expected_value: Number.isFinite(ev) ? ev : null,
                 isValueBet: r.isValueBet === 'True' || r.isValueBet === 'TRUE',
                 selection,
                 reason,
-                home_win_odds: parseFloat(r.Est_BbAvH) || null,
-                draw_odds: parseFloat(r.Est_BbAvD) || null,
-                away_win_odds: parseFloat(r.Est_BbAvA) || null
+                home_win_odds: Number.isFinite(parseFloat(r.Est_BbAvH)) ? parseFloat(r.Est_BbAvH) : null,
+                draw_odds: Number.isFinite(parseFloat(r.Est_BbAvD)) ? parseFloat(r.Est_BbAvD) : null,
+                away_win_odds: Number.isFinite(parseFloat(r.Est_BbAvA)) ? parseFloat(r.Est_BbAvA) : null
             };
         });
 
+        console.log(`[getAllBets] returned_rows=${allBets.length}`);
         res.json(allBets);
     } catch (err) {
         console.error('Error loading all bets:', err.message);
@@ -279,9 +293,10 @@ exports.getAllBets = async(req, res) => {
 };
 
 
-exports.updateResults = async (req, res) => {
+
+exports.updateResults = async(req, res) => {
     try {
-        const { user_id } = req.body; // or req.params.user_id depending on your route
+        const { user_id } = req.query;
 
         if (!user_id) {
             return res.status(400).json({ message: "user_id is required." });
@@ -289,7 +304,7 @@ exports.updateResults = async (req, res) => {
 
         // find pending bets for that user only
         const pendingBets = await UserBet.find({
-            user_id, 
+            user_id,
             result: 'pending',
             isDeleted: false
         });

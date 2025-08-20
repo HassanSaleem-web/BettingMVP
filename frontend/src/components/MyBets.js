@@ -54,14 +54,14 @@ const MyBets = ({ username }) => {
       // MVP: trigger result update every 15 minutes
       const intervalId = setInterval(async () => {
         try {
-          await fetch(`${process.env.REACT_APP_API_URL}/bets/update-results`, { method: "POST" });
+          await fetch(`${process.env.REACT_APP_API_URL}/bets/update-results?user_id=${username}`, { method: "POST" });
           console.log("✅ Results updated");
           fetchUserBets();
           fetchGrowth();
         } catch (err) {
           console.error("Failed to update results", err);
         }
-      }, 15 * 60 * 1000);
+      }, 10 * 60 * 1000);
 
       return () => clearInterval(intervalId);
     }

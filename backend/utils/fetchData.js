@@ -11,7 +11,7 @@ const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST;
 const LEAGUES = [78, 140, 61, 135, 39]; // Bundesliga, La Liga, Ligue 1, Serie A, EPL
 const SEASON = 2025;
 const BOOKMAKER_IDS = [8, 4]; // 8=Bet365, 4=Pinnacle
-const FIXTURE_LOOKAHEAD_DAYS = 2;
+const FIXTURE_LOOKAHEAD_DAYS = 5;
 
 // ---- league encoder (Div_enc) ----
 const LEAGUE_DIV_ENC = {
@@ -217,7 +217,13 @@ async function fetchAndStoreFixtures() {
 async function fetchOddsForFixtures() {
   const now = Math.floor(Date.now() / 1000);
   const week = now + FIXTURE_LOOKAHEAD_DAYS * 24 * 3600;
-  const fixtures = await Fixture.find({ timestamp: { $gte: now, $lte: week } }, { fixtureId: 1 }).lean();
+  const fixtures = await Fixture.find({
+  timestamp: { $gte: now, $lte: week },
+  $or: [
+    { odds: { $exists: false } },
+    { 'odds.avg': { $exists: false } }
+  ]
+}, { fixtureId: 1 }).lean();
 
   for (const f of fixtures) {
     const fixtureId = f.fixtureId;
@@ -427,24 +433,36 @@ function todayString() {
 }
 
 async function runOncePerDay(taskKey, fn) {
-  const today = todayString();
   const key = `daily:${taskKey}:utc`;
+  const today = todayString();
 
-  const doc = await Meta.findOneAndUpdate(
-    {
-      key,
-      $or: [{ value: { $ne: today } }, { value: { $exists: false } }]
-    },
-    { $set: { value: today, updatedAt: new Date() } },
-    { upsert: true, new: false }
-  );
+  try {
+    const res = await Meta.updateOne(
+      { key, value: { $ne: today } },
+      { $set: { key, value: today, updatedAt: new Date() } },
+      { upsert: true }
+    );
 
-  const alreadyRanToday = doc && doc.value === today;
-  if (alreadyRanToday) return false;
+    // If we inserted a new doc or modified the existing one => we "won" the lock
+    const weWon = (res.upsertedCount === 1) || (res.modifiedCount === 1);
 
-  await fn();
-  return true;
+    if (!weWon) {
+      // Already ran earlier today
+      return false;
+    }
+    // We won: execute the job
+    await fn();
+    return true;
+
+  } catch (err) {
+    // If two concurrent upserts collide, one may get E11000; treat as "already ran"
+    if (err && err.code === 11000) {
+      return false;
+    }
+    throw err;
+  }
 }
+
 
 
 

@@ -1,6 +1,13 @@
 const { exec } = require('child_process');
 const path = require('path');
-const {runScanUpcoming} = require('./modelController');
+const {runScanUpcoming} = require('./dataController');
+const {
+  fetchAndStoreFixtures,
+  fetchOddsForFixtures,
+  fetchAndStoreLast5ForStoredFixtures
+} = require('../utils/fetchData');
+
+
 const {
   runOncePerDay
 } = require('../utils/fetchData');
@@ -8,13 +15,19 @@ exports.runModel = async (req, res) => {
   try {
     // 1) Scan upcoming ONCE per UTC day (first login that hits this endpoint)
     const didRun = await runOncePerDay('scan-upcoming', async () => {
-      await runScanUpcoming();
+      await runScanUpcoming({
+        source: 'api',   // pull from API on the first run
+        withOdds: true,
+        withForm: true,
+      });
+      console.log("ran model");
     });
 
     if (didRun) {
-      console.log('🗓️ Ran scan-upcoming (first login of the UTC day).');
+      console.log('🗓️ Ran scan-upcoming.');
     } else {
-      console.log('🗓️ scan-upcoming already executed earlier today (UTC).');
+      await fetchOddsForFixtures();
+      console.log('🗓️ scan-upcoming already executed earlier today.');
     }
 
     // 2) Run your two Python models

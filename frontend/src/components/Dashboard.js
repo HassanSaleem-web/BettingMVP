@@ -2,25 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import ValueChart from './ValueChart';
 
-const Dashboard = ({username}) => {
+const Dashboard = ({ username }) => {
   const [activeView, setActiveView] = useState('table');
   const [refreshTimer, setRefreshTimer] = useState(30);
   const [liveTicker, setLiveTicker] = useState([]);
   const [bets, setBets] = useState([]);
   const location = useLocation();
 
+  // ---------- helpers ----------
+  const toNum = (v) => (typeof v === 'number' ? v : (v != null ? Number(v) : NaN));
+  const showOdd = (v) => (Number.isFinite(toNum(v)) ? toNum(v).toFixed(2) : 'Odds pending');
+  const showPct = (v, digits = 1) =>
+    Number.isFinite(toNum(v)) ? `${(toNum(v) * 100).toFixed(digits)}%` : '—';
+  const fmtUTC = (iso) => {
+     const d = new Date(iso);
+      if (isNaN(d)) return iso || '';
+      const s = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'UTC',
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).format(d);
+      return `${s} UTC`; // e.g., "Aug 22, 2025, 18:30 UTC"
+  };
+
   const [filters, setFilters] = useState({
-  date: '',
-  league: '',
-  team: '',
-  valueOnly: false
-});
+    date: '',
+    league: '',
+    team: '',
+    valueOnly: false
+  });
 
   const filteredBets = bets.filter(b => {
-    const matchDate = b.date?.slice(0, 10); // YYYY-MM-DD
+    const matchDate = b.date?.slice(0, 10); // YYYY-MM-DD from ISO
     const leagueMatch = filters.league ? b.league === filters.league : true;
-    const teamMatch = filters.team
-      ? b.team1.toLowerCase().includes(filters.team) || b.team2.toLowerCase().includes(filters.team)
+    const teamNeedle = (filters.team || '').toLowerCase();
+    const teamMatch = teamNeedle
+      ? (b.team1 || '').toLowerCase().includes(teamNeedle) ||
+        (b.team2 || '').toLowerCase().includes(teamNeedle)
       : true;
     const dateMatch = filters.date ? matchDate === filters.date : true;
     const valueMatch = filters.valueOnly ? b.isValueBet : true;
@@ -28,18 +50,16 @@ const Dashboard = ({username}) => {
     return leagueMatch && teamMatch && dateMatch && valueMatch;
   });
 
-
   useEffect(() => {
     const fetchBets = async () => {
       try {
-        const res = await fetch( `${process.env.REACT_APP_API_URL}/bets/all-bets`);
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/all-bets`);
         const data = await res.json();
         setBets(data);
       } catch (err) {
         console.error('Failed to fetch bets:', err);
       }
     };
-
     fetchBets();
   }, [location.key]);
 
@@ -47,23 +67,21 @@ const Dashboard = ({username}) => {
   const placeBet = async (bet) => {
     const stakeInput = prompt(`Enter stake amount for ${bet.team1} vs ${bet.team2}:`, "100");
     const stake = parseFloat(stakeInput);
-
     if (isNaN(stake) || stake <= 0) {
       alert("Invalid stake amount.");
       return;
     }
-    console.log("user", username);
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/bets/place-bet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: username, // Replace with actual auth ID
+          user_id: username,
           fixture_id: bet.match_id,
-          stake: stake
+          stake
         })
       });
-      const result = await res.json();
+      await res.json();
       alert(`✅ Bet placed on ${bet.team1} vs ${bet.team2}`);
     } catch (err) {
       console.error('❌ Error placing bet:', err);
@@ -74,14 +92,13 @@ const Dashboard = ({username}) => {
   // ✅ Stats
   const totalBets = bets.length;
   const valueBets = bets.filter(b => b.isValueBet);
-
   const valueBetsCount = valueBets.length;
   const valueBetsPercentage = totalBets ? (valueBetsCount / totalBets) * 100 : 0;
   const avgEV = valueBets.length > 0
-    ? valueBets.reduce((sum, b) => sum + b.expected_value, 0) / valueBets.length
+    ? valueBets.reduce((sum, b) => sum + (toNum(b.expected_value) || 0), 0) / valueBets.length
     : 0;
 
-  // ✅ Live Ticker
+  // ✅ Live ticker + refresh (unchanged)
   useEffect(() => {
     const sports = ['Football', 'Basketball', 'Tennis', 'Hockey', 'MMA'];
     const teams = [
@@ -91,29 +108,29 @@ const Dashboard = ({username}) => {
       ['Bruins', 'Flyers'],
       ['Jones', 'Cormier']
     ];
-    const generate = () => Array.from({ length: 5 }).map((_, i) => {
-      const s = Math.floor(Math.random() * sports.length);
-      return {
-        id: Date.now() + i,
-        sport: sports[s],
-        team1: teams[s][0],
-        team2: teams[s][1],
-        odds: (1.5 + Math.random() * 2).toFixed(2),
-        movement: Math.random() > 0.5 ? '↑' : '↓'
-      };
-    });
+    const generate = () =>
+      Array.from({ length: 5 }).map((_, i) => {
+        const s = Math.floor(Math.random() * sports.length);
+        return {
+          id: Date.now() + i,
+          sport: sports[s],
+          team1: teams[s][0],
+          team2: teams[s][1],
+          odds: (1.5 + Math.random() * 2).toFixed(2),
+          movement: Math.random() > 0.5 ? '↑' : '↓'
+        };
+      });
     setLiveTicker(generate());
     const interval = setInterval(() => setLiveTicker(generate()), 10000);
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ Refresh countdown
   useEffect(() => {
     if (refreshTimer <= 0) {
       setRefreshTimer(30);
       return;
     }
-    const timer = setTimeout(() => setRefreshTimer(refreshTimer - 1), 1000);
+    const timer = setTimeout(() => setRefreshTimer((t) => t - 1), 1000);
     return () => clearTimeout(timer);
   }, [refreshTimer]);
 
@@ -122,12 +139,12 @@ const Dashboard = ({username}) => {
     : 'bg-gray-100 text-gray-800';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">  {/* added max-w and center */}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard title="Total Bets Analyzed" value={totalBets} icon="📊" color="blue" />
         <StatCard title="Value Bets Found" value={valueBetsCount} suffix={`(${valueBetsPercentage.toFixed(1)}%)`} icon="✅" color="green" />
-        <StatCard title="Avg. Expected Value" value={`${(avgEV * 100).toFixed(2)}%`} suffix="for value bets" icon="📈" color="purple" />
+        <StatCard title="Avg. Expected Value" value={showPct(avgEV, 2)} suffix="for value bets" icon="📈" color="purple" />
       </div>
 
       {/* Live Odds Ticker */}
@@ -147,50 +164,42 @@ const Dashboard = ({username}) => {
       </div>
 
       {/* Filters */}
-<div className="bg-white rounded-lg shadow p-4 space-y-4">
-  <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-    {/* Date Filter */}
-    <input
-      type="date"
-      className="border border-gray-300 rounded px-3 py-2"
-      value={filters.date}
-      onChange={(e) => setFilters({ ...filters, date: e.target.value })}
-    />
-
-    {/* League Filter */}
-    <select
-      className="border border-gray-300 rounded px-3 py-2"
-      value={filters.league}
-      onChange={(e) => setFilters({ ...filters, league: e.target.value })}
-    >
-      <option value="">All Leagues</option>
-      {Array.from(new Set(bets.map(b => b.league))).map((lg, i) => (
-        <option key={i} value={lg}>{lg}</option>
-      ))}
-    </select>
-
-    {/* Team Filter */}
-    <input
-      type="text"
-      placeholder="Search team"
-      className="border border-gray-300 rounded px-3 py-2"
-      value={filters.team}
-      onChange={(e) => setFilters({ ...filters, team: e.target.value.toLowerCase() })}
-    />
-
-      {/* Value Bet Toggle */}
-      <label className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          checked={filters.valueOnly}
-          onChange={(e) => setFilters({ ...filters, valueOnly: e.target.checked })}
-        />
-        <span className="text-sm text-gray-700">Only Value Bets</span>
-      </label>
-    </div>
-  </div>
-
+      <div className="bg-white rounded-lg shadow p-4 space-y-4">
+        <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <input
+            type="date"
+            className="border border-gray-300 rounded px-3 py-2"
+            value={filters.date}
+            onChange={(e) => setFilters({ ...filters, date: e.target.value })}
+          />
+          <select
+            className="border border-gray-300 rounded px-3 py-2"
+            value={filters.league}
+            onChange={(e) => setFilters({ ...filters, league: e.target.value })}
+          >
+            <option value="">All Leagues</option>
+            {Array.from(new Set(bets.map(b => b.league))).map((lg, i) => (
+              <option key={i} value={lg}>{lg}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="Search team"
+            className="border border-gray-300 rounded px-3 py-2"
+            value={filters.team}
+            onChange={(e) => setFilters({ ...filters, team: e.target.value.toLowerCase() })}
+          />
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={filters.valueOnly}
+              onChange={(e) => setFilters({ ...filters, valueOnly: e.target.checked })}
+            />
+            <span className="text-sm text-gray-700">Only Value Bets</span>
+          </label>
+        </div>
+      </div>
 
       {/* View Toggle */}
       <div className="flex justify-between items-center">
@@ -214,43 +223,47 @@ const Dashboard = ({username}) => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Date', 'Match', 'Sport', 'League', 'Bookmaker Odds', 'Home Win', 'Draw', 'Away Win', 'Our Probability', 'Expected Value', 'Value Bet', 'Actions'].map(h => (
+                  {['Date', 'Match', 'League', 'Bookmaker Odds', 'Home Win', 'Draw', 'Away Win', 'Our Probability', 'Expected Value', 'Value Bet', 'Actions'].map(h => (
                     <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBets.map((bet) => (
-                  <tr key={bet.match_id} className={bet.isValueBet ? 'bg-green-50' : ''}>
-                    <td className="px-6 py-4 text-sm text-gray-500">{bet.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bet.team1} vs {bet.team2}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{bet.sport}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{bet.league}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{bet.odds?.toFixed(2)??'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{bet.home_win_odds?.toFixed(2) ?? 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{bet.draw_odds?.toFixed(2) ?? 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{bet.away_win_odds?.toFixed(2) ?? 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{(bet.predicted_win_prob * 100)?.toFixed(1)??'N/A'}%</td>
-                    <td className={`px-6 py-4 text-sm font-medium ${bet.expected_value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {(bet.expected_value * 100)?.toFixed(2)??'N/A'}%
-                  </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${getStatusColor(bet)}`}>
-                        {bet.isValueBet ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {bet.isValueBet && (
-                        <button
-                          onClick={() => placeBet(bet)}
-                          className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-sm whitespace-nowrap"
-                        >
-                          Place Bet
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {filteredBets.map((bet) => {
+                  const ev = toNum(bet.expected_value);
+                  const evClass = Number.isFinite(ev)
+                    ? (ev >= 0 ? 'text-green-600' : 'text-red-600')
+                    : 'text-gray-500';
+                  return (
+                    <tr key={bet.match_id} className={bet.isValueBet ? 'bg-green-50' : ''}>
+                      <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{fmtUTC(bet.date)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{bet.team1} vs {bet.team2}</td>
+                      {/* <td className="px-6 py-4 text-sm text-gray-500">{bet.sport}</td> */}
+                      <td className="px-6 py-4 text-sm text-gray-500">{bet.league}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{showOdd(bet.odds)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{showOdd(bet.home_win_odds)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{showOdd(bet.draw_odds)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{showOdd(bet.away_win_odds)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{showPct(bet.predicted_win_prob)}</td>
+                      <td className={`px-6 py-4 text-sm font-medium ${evClass}`}>{showPct(bet.expected_value, 2)}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-2 inline-flex text-xs font-semibold rounded-full ${getStatusColor(bet)}`}>
+                          {bet.isValueBet ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {bet.isValueBet && (
+                          <button
+                            onClick={() => placeBet(bet)}
+                            className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-sm whitespace-nowrap"
+                          >
+                            Place Bet
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -264,7 +277,8 @@ const Dashboard = ({username}) => {
         </div>
       )}
 
-      {/* How It Works */}
+      {/* How It Works + Quick Actions (unchanged) */}
+      {/* ... keep your existing sections ... */}
       <section className="mt-8 bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">How It Works</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -283,7 +297,6 @@ const Dashboard = ({username}) => {
         </div>
       </section>
 
-      {/* Quick Actions */}
       <div className="bg-blue-50 rounded-lg shadow-md p-6">
         <h3 className="text-lg font-medium text-blue-800 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -309,7 +322,7 @@ const Dashboard = ({username}) => {
   );
 };
 
-// ✅ Stat Card Component
+// ✅ Stat Card Component (unchanged)
 const StatCard = ({ title, value, suffix, icon, color }) => (
   <div className="bg-white rounded-lg shadow-md p-6">
     <div className="flex items-center">

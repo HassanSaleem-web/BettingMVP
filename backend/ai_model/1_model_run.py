@@ -7,7 +7,7 @@ import pymongo
 from datetime import datetime
 
 # -------------------- CONFIG --------------------
-MONGO_URI       = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI       = os.getenv("MONGO_URI", "mongodb+srv://huda-imran:wiW8qvRd3ZDIka38@cluster0.dz0un.mongodb.net")
 DB_NAME         = os.getenv("DB_NAME", "sportsbetting")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "fixtures")
 DEBUG           = os.getenv("DEBUG", "1") not in ("0", "false", "False", "")
@@ -86,7 +86,7 @@ for i, fx in enumerate(docs):
             'Wins_Diff_Last5':    fx.get('Wins_Diff_Last5'),
             'Losses_Diff_Last5':  fx.get('Losses_Diff_Last5'),
 
-            # passthrough (kept as-is)
+            # passthrough
             'fixtureId':          fx.get('fixtureId'),
             'HomeTeam':           (fx.get('homeTeam') or {}).get('name'),
             'AwayTeam':           (fx.get('awayTeam') or {}).get('name'),
@@ -94,7 +94,11 @@ for i, fx in enumerate(docs):
             'timestamp':          fx.get('timestamp'),
         }
 
+        # annotate missing info (for diagnostics + reason later)
         missing = [k for k in required_keys if row.get(k) is None]
+        row['_missing_required'] = missing
+        records.append(row)
+
         if missing:
             for k in missing:
                 missing_counts[k] = missing_counts.get(k, 0) + 1
@@ -104,9 +108,6 @@ for i, fx in enumerate(docs):
                     "teams": f"{row.get('HomeTeam')} vs {row.get('AwayTeam')}",
                     "missing": missing
                 })
-            continue
-
-        records.append(row)
 
     except Exception as e:
         if len(sample_missing) < 10:
@@ -117,7 +118,7 @@ for i, fx in enumerate(docs):
             })
         continue
 
-dprint(f"Valid records: {len(records)} / {len(docs)}")
+dprint(f"Total rows (all fixtures): {len(records)}")
 if missing_counts:
     dprint("Top missing required fields (count):",
            ", ".join([f"{k}:{v}" for k, v in sorted(missing_counts.items(), key=lambda x: -x[1])]))
@@ -126,34 +127,30 @@ if missing_counts:
         for s in sample_missing:
             dprint("  ->", s)
 
-df = pd.DataFrame(records)
-if df.empty:
-    print("No valid fixtures with all required features. Writing empty CSV.")
-    pd.DataFrame().to_csv(value_bets_output, index=False)
+df_all = pd.DataFrame(records)
+if df_all.empty:
+    print("No fixtures found. Writing empty CSV.")
+    df_all.to_csv(value_bets_output, index=False)
     sys.exit(0)
 
-dprint("DataFrame shape after transform:", df.shape)
-dprint("Columns:", list(df.columns))
-
-# -------------------- LOAD MODEL + SCALER --------------------
+# -------------------- LOAD MODEL + SCALER (unchanged) --------------------
 if not os.path.exists(scaler_path):
-    print(f"❌ Scaler not found at {scaler_path}")
-    sys.exit(1)
+    print(f"❌ Scaler not found at {scaler_path}") 
+    sys.exit(1) 
 if not os.path.exists(model_path):
     print(f"❌ Model not found at {model_path}")
     sys.exit(1)
 
 dprint("Loading scaler:", scaler_path)
-dprint("Loading model :", model_path)
-
-try:
+dprint("Loading model :", model_path) 
+try: 
     scaler = joblib.load(scaler_path)
-    model  = joblib.load(model_path)
+    model = joblib.load(model_path) 
 except Exception as e:
-    print(f"❌ Failed to load scaler/model: {e}")
-    sys.exit(1)
+     print(f"❌ Failed to load scaler/model: {e}")
+     sys.exit(1)
 
-# -------------------- PREDICT --------------------
+# -------------------- PREDICT ONLY ON COMPLETE ROWS --------------------
 features = [
     'Imp_B365H','Imp_B365D','Imp_B365A',
     'Imp_BbAvH','Imp_BbAvD','Imp_BbAvA',
@@ -163,70 +160,106 @@ features = [
     'Draws_Diff_Last5','Wins_Diff_Last5','Losses_Diff_Last5'
 ]
 
-if any(col not in df.columns for col in features):
-    missing_feat_cols = [c for c in features if c not in df.columns]
-    print(f"❌ Missing feature columns in DataFrame: {missing_feat_cols}")
-    sys.exit(1)
+df_all['features_complete'] = df_all['_missing_required'].apply(lambda m: len(m) == 0)
 
-X = df[features]
-dprint("Feature matrix shape:", X.shape)
-dprint("Any NaNs in features?:", X.isna().any().any())
+df = df_all[df_all['features_complete']].copy()
+dprint("Rows with complete features:", len(df), "/", len(df_all))
 
-try:
-    X_scaled = scaler.transform(X)
-    probs    = model.predict_proba(X_scaled)
-except Exception as e:
-    print(f"❌ Inference failed: {e}")
-    sys.exit(1)
+if not df.empty:
+    X = df[features]
+    dprint("Feature matrix shape:", X.shape)
+    dprint("Any NaNs in features?:", X.isna().any().any())
 
-pred_indices = np.argmax(probs, axis=1)
-target_map   = {0: 'A', 1: 'D', 2: 'H'}
-df['FTR_pred'] = [target_map[i] for i in pred_indices]
-df[['Prob_A','Prob_D','Prob_H']] = probs
+    try:
+        X_scaled = scaler.transform(X)
+        probs    = model.predict_proba(X_scaled)
+    except Exception as e:
+        print(f"❌ Inference failed: {e}")
+        # fall back: mark as incomplete
+        df = pd.DataFrame(columns=df.columns)
 
-pred_counts = df['FTR_pred'].value_counts(dropna=False).to_dict()
-dprint("Prediction class counts:", pred_counts)
+    if not df.empty:
+        pred_indices = np.argmax(probs, axis=1)
+        target_map   = {0: 'A', 1: 'D', 2: 'H'}
+        df['FTR_pred'] = [target_map[i] for i in pred_indices]
+        df[['Prob_A','Prob_D','Prob_H']] = probs
 
-# -------------------- POST-PROCESS (unchanged) --------------------
-df['Est_BbAvH'] = 1 / df['Imp_BbAvH']
-df['Est_BbAvD'] = 1 / df['Imp_BbAvD']
-df['Est_BbAvA'] = 1 / df['Imp_BbAvA']
+        # Odds reciprocals
+        df['Est_BbAvH'] = 1 / df['Imp_BbAvH']
+        df['Est_BbAvD'] = 1 / df['Imp_BbAvD']
+        df['Est_BbAvA'] = 1 / df['Imp_BbAvA']
 
-def get_odds_probs(row):
-    if row['FTR_pred'] == 'H':
-        return row['Est_BbAvH'], row['Prob_H']
-    elif row['FTR_pred'] == 'D':
-        return row['Est_BbAvD'], row['Prob_D']
+        def get_odds_probs(row):
+            if row['FTR_pred'] == 'H':
+                return row['Est_BbAvH'], row['Prob_H']
+            elif row['FTR_pred'] == 'D':
+                return row['Est_BbAvD'], row['Prob_D']
+            else:
+                return row['Est_BbAvA'], row['Prob_A']
+
+        df[['chosen_odds','chosen_prob']] = df.apply(get_odds_probs, axis=1, result_type='expand')
+
+        df['Expected_Value'] = df['chosen_prob'] * df['chosen_odds'] - 1
+        df['confidence']     = df[['Prob_A','Prob_D','Prob_H']].max(axis=1)
+        df['prob_gap']       = df[['Prob_A','Prob_D','Prob_H']].max(axis=1) - df[['Prob_A','Prob_D','Prob_H']].min(axis=1)
+        df['spread_skew']    = (df['Prob_H'] - df['Prob_A']).abs()
+
+        df['Value_Bet'] = (df['Expected_Value'] > 0.05) & (df['confidence'] > 0.35)
+
+        df['Kelly'] = np.clip(
+            (df['chosen_prob'] * (df['chosen_odds'] - 1) - (1 - df['chosen_prob'])) / (df['chosen_odds'] - 1),
+            0, 1
+        )
+        df['Confidence_Stake'] = df['confidence']
+
+        # label complete rows as no reason
+        df['reason'] = ""
+
+# -------------------- MERGE BACK INTO ALL ROWS --------------------
+# Columns produced by the model pipeline (we’ll set NaN/defaults for incomplete)
+model_cols = [
+    'FTR_pred', 'Prob_A', 'Prob_D', 'Prob_H',
+    'Est_BbAvH', 'Est_BbAvD', 'Est_BbAvA',
+    'chosen_odds', 'chosen_prob',
+    'Expected_Value', 'confidence', 'prob_gap', 'spread_skew',
+    'Value_Bet', 'Kelly', 'Confidence_Stake', 'reason'
+]
+
+# init defaults for all rows
+for c in model_cols:
+    if c == 'Value_Bet':
+        df_all[c] = False
+    elif c == 'reason':
+        df_all[c] = ""
     else:
-        return row['Est_BbAvA'], row['Prob_A']
+        df_all[c] = np.nan
 
-df[['chosen_odds','chosen_prob']] = df.apply(get_odds_probs, axis=1, result_type='expand')
+# write predictions back for complete-feature rows
+if not df.empty:
+    df_all.update(df[model_cols + ['fixtureId']])
 
-df['Expected_Value'] = df['chosen_prob'] * df['chosen_odds'] - 1
-df['confidence']     = df[['Prob_A','Prob_D','Prob_H']].max(axis=1)
-df['prob_gap']       = df[['Prob_A','Prob_D','Prob_H']].max(axis=1) - df[['Prob_A','Prob_D','Prob_H']].min(axis=1)
-df['spread_skew']    = (df['Prob_H'] - df['Prob_A']).abs()
+# add a reason for incomplete-feature rows
+def infer_reason(missing_list):
+    missing_set = set(missing_list or [])
+    odds_keys = {'Imp_BbAvH','Imp_BbAvD','Imp_BbAvA','Imp_B365H','Imp_B365D','Imp_B365A'}
+    if missing_set & odds_keys:
+        return "odds_unavailable"
+    return "missing_features"
 
-df['Value_Bet'] = (df['Expected_Value'] > 0.05) & (df['confidence'] > 0.35)
+df_all.loc[~df_all['features_complete'], 'reason'] = df_all.loc[~df_all['features_complete'], '_missing_required'].apply(infer_reason)
+df_all.loc[~df_all['features_complete'], 'Value_Bet'] = False
 
-val_count = int(df['Value_Bet'].sum())
-dprint(f"Value bets flagged: {val_count} / {len(df)}")
-if DEBUG and val_count > 0:
-    cols_preview = ['Date','HomeTeam','AwayTeam','FTR_pred','chosen_odds','chosen_prob','Expected_Value','confidence']
-    dprint("Sample value bets (up to 5):")
-    dprint(df.loc[df['Value_Bet'], cols_preview].head(5).to_string(index=False))
-
-# Staking (unchanged)
-df['Kelly'] = np.clip(
-    (df['chosen_prob'] * (df['chosen_odds'] - 1) - (1 - df['chosen_prob'])) / (df['chosen_odds'] - 1),
-    0, 1
-)
-df['Confidence_Stake'] = df['confidence']
+# Keep/ensure isValueBet won't be added here — that’s done in script #2
 
 # -------------------- SAVE --------------------
 try:
-    df.to_csv(value_bets_output, index=False)
-    print(f"💾 Saved: {value_bets_output} (rows: {len(df)})")
+    df_all.drop(columns=['_missing_required'], inplace=True)
+except Exception:
+    pass
+
+try:
+    df_all.to_csv(value_bets_output, index=False)
+    print(f"💾 Saved: {value_bets_output} (rows: {len(df_all)})")
 except Exception as e:
     print(f"❌ Failed to write CSV: {e}")
     sys.exit(1)
