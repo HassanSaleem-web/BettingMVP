@@ -6,8 +6,11 @@ import joblib
 import pymongo
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # -------------------- CONFIG --------------------
-MONGO_URI       = os.getenv("MONGO_URI", "mongodb+srv://huda-imran:wiW8qvRd3ZDIka38@cluster0.dz0un.mongodb.net")
+MONGO_URI = os.getenv("MONGO_URI", "<fallback-uri>")
 DB_NAME         = os.getenv("DB_NAME", "sportsbetting")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "fixtures")
 DEBUG           = os.getenv("DEBUG", "1") not in ("0", "false", "False", "")
