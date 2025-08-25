@@ -252,14 +252,12 @@ const Dashboard = ({ username }) => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {bet.isValueBet && (
                           <button
                             onClick={() => placeBet(bet)}
                             className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded-md text-sm whitespace-nowrap"
                           >
                             Place Bet
                           </button>
-                        )}
                       </td>
                     </tr>
                   );
