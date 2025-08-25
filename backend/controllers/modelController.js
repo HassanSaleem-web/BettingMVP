@@ -42,13 +42,13 @@ exports.runModel = async (req, res) => {
     // Prefer execFile with "python3" and args for safety
     const { stdout: m1out, stderr: m1err } = await execFileAsync('python3', [model1Path], execOpts);
     if (m1err && m1err.trim()) {
-      console.warn('Model 1 stderr:', m1err);
+      //console.warn('Model 1 stderr:', m1err);
     }
     console.log('✅ Model 1 Completed');
 
     const { stdout: m2out, stderr: m2err } = await execFileAsync('python3', [model2Path], execOpts);
     if (m2err && m2err.trim()) {
-      console.warn('Model 2 stderr:', m2err);
+      //console.warn('Model 2 stderr:', m2err);
     }
     console.log('✅ Model 2 Completed');
 

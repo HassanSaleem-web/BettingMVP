@@ -228,11 +228,11 @@ exports.deleteUserBet = async(req, res) => {
 exports.getAllBets = async(req, res) => {
     try {
         const rows = await loadValueBetsCSV();
-        console.log(`[getAllBets] total_rows_loaded=${rows.length}`);
+        //console.log(`[getAllBets] total_rows_loaded=${rows.length}`);
 
         // Filter out rows that have missing features only
         const usable = rows.filter(r => String(r.reason || '').trim().toLowerCase() !== 'missing_features');
-        console.log(`[getAllBets] removed_missing_features=${rows.length - usable.length} usable=${usable.length}`);
+        //console.log(`[getAllBets] removed_missing_features=${rows.length - usable.length} usable=${usable.length}`);
 
         const leagueMap = {
             '0': 'Bundesliga',
@@ -284,10 +284,10 @@ exports.getAllBets = async(req, res) => {
             };
         });
 
-        console.log(`[getAllBets] returned_rows=${allBets.length}`);
+        //console.log(`[getAllBets] returned_rows=${allBets.length}`);
         res.json(allBets);
     } catch (err) {
-        console.error('Error loading all bets:', err.message);
+        //console.error('Error loading all bets:', err.message);
         res.status(500).json({ error: 'Failed to load all bets' });
     }
 };

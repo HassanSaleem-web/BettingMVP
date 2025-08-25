@@ -7,15 +7,17 @@ const Login = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    setLoadingMessage('Signing in...');
 
     try {
-      // 🔐 Step 1: Login and get token
+      // Step 1: Login and get token
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/auth/login`, {
         username,
         password,
@@ -23,20 +25,24 @@ const Login = ({ onLogin }) => {
 
       const token = response.data?.token;
       if (token) {
-        // ✅ Save token to localStorage
         localStorage.setItem('token', token);
-        onLogin(username); // Update app-level state
+        onLogin(username);
 
-        // 🚀 Step 2: Trigger Model Execution
-        const modelRes = await axios.post(`${process.env.REACT_APP_API_URL}/model/run-model`, {}, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        // Step 2: Run model after login
+        setLoadingMessage('Running prediction models...');
+        const modelRes = await axios.post(
+          `${process.env.REACT_APP_API_URL}/model/run-model`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         console.log(modelRes.data.message);
 
-        // ✅ Redirect to Dashboard or Home
+        // Step 3: Navigate after models finish
         navigate('/dashboard');
       } else {
         setError('Login failed');
@@ -45,6 +51,7 @@ const Login = ({ onLogin }) => {
       setError(err.response?.data?.message || 'Login error');
     } finally {
       setIsLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -105,11 +112,11 @@ const Login = ({ onLogin }) => {
                 <>
                   <span className="absolute left-0 inset-y-0 flex items-center pl-3">
                     <svg className="animate-spin h-5 w-5 text-blue-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                   </span>
-                  Signing in...
+                  {loadingMessage}
                 </>
               ) : (
                 <>

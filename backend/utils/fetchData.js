@@ -14,7 +14,7 @@ const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST;
 const LEAGUES = [78, 140, 61, 135, 39]; // Bundesliga, La Liga, Ligue 1, Serie A, EPL
 const SEASON = 2025;
 const BOOKMAKER_IDS = [8, 4]; // 8=Bet365, 4=Pinnacle
-const FIXTURE_LOOKAHEAD_DAYS = 7;
+const FIXTURE_LOOKAHEAD_DAYS = 3;
 
 // ---- league encoder (Div_enc) ----
 const LEAGUE_DIV_ENC = {
@@ -389,29 +389,78 @@ function todayString() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// Make sure Meta and todayString() are in scope
+// const Meta = require('../models/Meta');
+
+function todayString() {
+  const d = new Date();
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 async function runOncePerDay(taskKey, fn) {
   const key = `daily:${taskKey}:utc`;
   const today = todayString();
+  const t0 = Date.now();
+
+  console.log(`[runOncePerDay] ENTER key=${key} today=${today} pid=${process.pid}`);
+
+  // Build query/update/options once so we can log them
+  const filter = { key, value: { $ne: today } };
+  const update = { $set: { key, value: today, updatedAt: new Date() } };
+  const options = { upsert: true };
+
+  // Log a safe version of the update (Date objects stringify poorly)
+  console.log('[runOncePerDay] updateOne() call:', {
+    filter,
+    update: { $set: { ...update.$set, updatedAt: '<NOW>' } },
+    options
+  });
 
   try {
-    const res = await Meta.updateOne(
-      { key, value: { $ne: today } },
-      { $set: { key, value: today, updatedAt: new Date() } },
-      { upsert: true }
-    );
+    const res = await Meta.updateOne(filter, update, options);
 
-    const weWon = (res.upsertedCount === 1) || (res.modifiedCount === 1);
+    // Mongoose/Mongo can vary a bit in shape; log the common fields
+    console.log('[runOncePerDay] updateOne() result:', {
+      acknowledged: res?.acknowledged,
+      matchedCount: res?.matchedCount,
+      modifiedCount: res?.modifiedCount,
+      upsertedCount: res?.upsertedCount,
+      upsertedId: res?.upsertedId ?? (Array.isArray(res?.upserted) ? res.upserted[0]?._id : undefined)
+    });
 
-    if (!weWon) return false;
+    const weWon =
+      (res?.upsertedCount === 1) ||
+      (res?.modifiedCount === 1);
 
+    console.log(`[runOncePerDay] decision weWon=${weWon}`);
+
+    if (!weWon) {
+      console.log(`[runOncePerDay] SKIP — already ran today. total=${Date.now() - t0}ms`);
+      return false;
+    }
+
+    console.log(`[runOncePerDay] RUNNING task "${taskKey}"…`);
+    const t1 = Date.now();
     await fn();
+    console.log(`[runOncePerDay] DONE task "${taskKey}" in ${Date.now() - t1}ms (total=${Date.now() - t0}ms)`);
     return true;
 
   } catch (err) {
-    if (err && err.code === 11000) return false; // unique conflict: someone else won
+    if (err && err.code === 11000) {
+      console.log(`[runOncePerDay] RACE — duplicate key, another instance won. total=${Date.now() - t0}ms`);
+      return false;
+    }
+    console.error('[runOncePerDay] ERROR:', err?.message);
+    if (err?.stack) console.error(err.stack);
     throw err;
   }
 }
+
+module.exports = { runOncePerDay };
+
 
 module.exports = {
   fetchAndStoreFixtures,
