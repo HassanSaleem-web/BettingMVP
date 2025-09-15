@@ -14,7 +14,7 @@ const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST;
 const LEAGUES = [78, 140, 61, 135, 39]; // Bundesliga, La Liga, Ligue 1, Serie A, EPL
 const SEASON = 2025;
 const BOOKMAKER_IDS = [8, 4]; // 8=Bet365, 4=Pinnacle
-const FIXTURE_LOOKAHEAD_DAYS = 3;
+const FIXTURE_LOOKAHEAD_DAYS = 7;
 
 // ---- league encoder (Div_enc) ----
 const LEAGUE_DIV_ENC = {
