@@ -225,14 +225,11 @@ exports.deleteUserBet = async(req, res) => {
 };
 
 // ✅ 5. All model-evaluated bets
-exports.getAllBets = async(req, res) => {
+exports.getAllBets = async (req, res) => {
     try {
         const rows = await loadValueBetsCSV();
-        //console.log(`[getAllBets] total_rows_loaded=${rows.length}`);
 
-        // Filter out rows that have missing features only
         const usable = rows.filter(r => String(r.reason || '').trim().toLowerCase() !== 'missing_features');
-        //console.log(`[getAllBets] removed_missing_features=${rows.length - usable.length} usable=${usable.length}`);
 
         const leagueMap = {
             '0': 'Bundesliga',
@@ -242,52 +239,50 @@ exports.getAllBets = async(req, res) => {
             '4': 'La Liga'
         };
 
-        // No slicing; map over all usable rows
-        const allBets = usable.map(r => {
-            const odds = parseFloat(r.chosen_odds);
-            const prob = parseFloat(r.chosen_prob);
-            const ev = parseFloat(r.Expected_Value);
+        const allBets = usable
+            .map(r => {
+                const odds = parseFloat(r.chosen_odds);
+                const prob = parseFloat(r.chosen_prob);
+                const ev = parseFloat(r.Expected_Value);
 
-            let selection = 'N/A';
-            const pred = r.FTR_pred ?.trim ?.();
-            if (pred === 'H') selection = 'Home Win';
-            else if (pred === 'A') selection = 'Away Win';
-            else if (pred === 'D') selection = 'Draw';
+                let selection = 'N/A';
+                const pred = r.FTR_pred?.trim?.();
+                if (pred === 'H') selection = 'Home Win';
+                else if (pred === 'A') selection = 'Away Win';
+                else if (pred === 'D') selection = 'Draw';
 
-            // Prefer CSV-provided reason; otherwise compute if possible; else fallback
-            let reason = String(r.reason || '').trim();
-            if (!reason) {
-                if (Number.isFinite(odds) && odds > 0 && Number.isFinite(prob) && Number.isFinite(ev)) {
-                    const impliedProb = 1 / odds;
-                    reason = `Model predicts ${(prob * 100).toFixed(1)}% win probability, but implied odds only ${(impliedProb * 100).toFixed(1)}% → EV: ${(ev * 100).toFixed(1)}%`;
-                } else {
-                    reason = 'odds_unavailable';
+                let reason = String(r.reason || '').trim();
+                if (!reason) {
+                    if (Number.isFinite(odds) && odds > 0 && Number.isFinite(prob) && Number.isFinite(ev)) {
+                        const impliedProb = 1 / odds;
+                        reason = `Model predicts ${(prob * 100).toFixed(1)}% win probability, but implied odds only ${(impliedProb * 100).toFixed(1)}% → EV: ${(ev * 100).toFixed(1)}%`;
+                    } else {
+                        reason = 'odds_unavailable';
+                    }
                 }
-            }
 
-            return {
-                date: r.Date,
-                match_id: r.fixtureId, // using fixtureId as match_id
-                team1: r.HomeTeam,
-                team2: r.AwayTeam,
-                sport: r.Sport || 'Football',
-                league: leagueMap[r.Div_enc ?.trim ?.()] || 'Unknown',
-                odds: Number.isFinite(odds) ? odds : null,
-                predicted_win_prob: Number.isFinite(prob) ? prob : null,
-                expected_value: Number.isFinite(ev) ? ev : null,
-                isValueBet: r.isValueBet === 'True' || r.isValueBet === 'TRUE',
-                selection,
-                reason,
-                home_win_odds: Number.isFinite(parseFloat(r.Est_BbAvH)) ? parseFloat(r.Est_BbAvH) : null,
-                draw_odds: Number.isFinite(parseFloat(r.Est_BbAvD)) ? parseFloat(r.Est_BbAvD) : null,
-                away_win_odds: Number.isFinite(parseFloat(r.Est_BbAvA)) ? parseFloat(r.Est_BbAvA) : null
-            };
-        });
+                return {
+                    date: r.Date,
+                    match_id: r.fixtureId,
+                    team1: r.HomeTeam,
+                    team2: r.AwayTeam,
+                    sport: r.Sport || 'Football',
+                    league: leagueMap[r.Div_enc?.trim?.()] || 'Unknown',
+                    odds: Number.isFinite(odds) ? odds : null,
+                    predicted_win_prob: Number.isFinite(prob) ? prob : null,
+                    expected_value: Number.isFinite(ev) ? ev : null,
+                    isValueBet: r.isValueBet === 'True' || r.isValueBet === 'TRUE',
+                    selection,
+                    reason,
+                    home_win_odds: Number.isFinite(parseFloat(r.Est_BbAvH)) ? parseFloat(r.Est_BbAvH) : null,
+                    draw_odds: Number.isFinite(parseFloat(r.Est_BbAvD)) ? parseFloat(r.Est_BbAvD) : null,
+                    away_win_odds: Number.isFinite(parseFloat(r.Est_BbAvA)) ? parseFloat(r.Est_BbAvA) : null
+                };
+            })
+            .sort((a, b) => new Date(a.date) - new Date(b.date)); // ✅ Sort by date
 
-        //console.log(`[getAllBets] returned_rows=${allBets.length}`);
         res.json(allBets);
     } catch (err) {
-        //console.error('Error loading all bets:', err.message);
         res.status(500).json({ error: 'Failed to load all bets' });
     }
 };
