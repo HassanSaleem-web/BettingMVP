@@ -252,8 +252,6 @@ def infer_reason(missing_list):
 df_all.loc[~df_all['features_complete'], 'reason'] = df_all.loc[~df_all['features_complete'], '_missing_required'].apply(infer_reason)
 df_all.loc[~df_all['features_complete'], 'Value_Bet'] = False
 
-# Keep/ensure isValueBet won't be added here — that’s done in script #2
-
 # -------------------- SAVE --------------------
 try:
     df_all.drop(columns=['_missing_required'], inplace=True)
@@ -261,8 +259,23 @@ except Exception:
     pass
 
 try:
-    df_all.to_csv(value_bets_output, index=False)
-    print(f"💾 Saved: {value_bets_output} (rows: {len(df_all)})")
+    # ✅ Store predictions in MongoDB instead of CSV
+    predictions_col = db["value_bets"]
+
+    # Convert NaN to None for MongoDB
+    df_all = df_all.replace({np.nan: None})
+    records = df_all.to_dict(orient="records")
+
+    for rec in records:
+        if not rec.get("fixtureId"):
+            continue
+        predictions_col.update_one(
+            {"fixtureId": rec["fixtureId"]},
+            {"$set": rec},
+            upsert=True
+        )
+
+    print(f"💾 Saved {len(records)} records to MongoDB collection 'value_bets'")
 except Exception as e:
-    print(f"❌ Failed to write CSV: {e}")
+    print(f"❌ Failed to write predictions to MongoDB: {e}")
     sys.exit(1)

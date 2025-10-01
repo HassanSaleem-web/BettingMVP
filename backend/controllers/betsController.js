@@ -5,7 +5,16 @@ const UserBet = require('../models/UserBet');
 const moment = require('moment');
 const Fixture = require('../models/Fixture');
 const fetchFixtureResult = require('../utils/fetchData');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
 
+dotenv.config();
+const MONGO_URI = process.env.MONGO_URI || '<fallback-uri>';
+
+const client = new mongoose.Mongoose();
+client.connect(MONGO_URI);
+const db = client.connection;
+const ValueBet = db.collection('value_bets');
 
 
 // Helper to read and parse the value bets CSV
@@ -89,11 +98,38 @@ function aggregateByDate(bets) {
 
 
 // ✅ 1. Read value bets
-exports.getValueBets = async(req, res) => {
+// exports.getValueBets = async(req, res) => {
+//     try {
+//         const rows = await loadValueBetsCSV();
+//         const valueBets = rows
+//             .filter(r => r.isValueBet === 'True' || r.isValueBet === 'TRUE')
+//             .map(r => ({
+//                 match_id: r.fixtureId,
+//                 team1: r.HomeTeam,
+//                 team2: r.AwayTeam,
+//                 sport: r.Sport || 'Football',
+//                 odds: parseFloat(r.chosen_odds),
+//                 predicted_win_prob: parseFloat(r.chosen_prob),
+//                 expected_value: parseFloat(r.Expected_Value),
+//                 isValueBet: true
+//             }));
+//         res.json(valueBets);
+//     } catch (err) {
+//         console.error('Error loading value bets:', err.message);
+//         res.status(500).json({ error: 'Failed to load value bets' });
+//     }
+// };
+
+// ✅ 1. Read value bets from MongoDB instead of CSV
+exports.getValueBets = async (req, res) => {
     try {
-        const rows = await loadValueBetsCSV();
+        console.log("📥 [getValueBets] Fetching rows from MongoDB...");
+        const rows = await ValueBet.find({}).toArray();
+        console.log(`📊 [getValueBets] Total rows fetched: ${rows.length}`);
+
+        // Filter to only "true" value bets
         const valueBets = rows
-            .filter(r => r.isValueBet === 'True' || r.isValueBet === 'TRUE')
+            .filter(r => r.isValueBet === true || r.isValueBet === 'True' || r.isValueBet === 'TRUE')
             .map(r => ({
                 match_id: r.fixtureId,
                 team1: r.HomeTeam,
@@ -104,12 +140,16 @@ exports.getValueBets = async(req, res) => {
                 expected_value: parseFloat(r.Expected_Value),
                 isValueBet: true
             }));
+
+        console.log(`✅ [getValueBets] Value bets after filtering: ${valueBets.length}`);
         res.json(valueBets);
+
     } catch (err) {
-        console.error('Error loading value bets:', err.message);
+        console.error('❌ [getValueBets] Error loading value bets:', err.message);
         res.status(500).json({ error: 'Failed to load value bets' });
     }
 };
+
 
 // ✅ 3. Place a bet
 exports.placeBet = async(req, res) => {
@@ -224,32 +264,97 @@ exports.deleteUserBet = async(req, res) => {
     }
 };
 
-// ✅ 5. All model-evaluated bets
+// // ✅ 5. All model-evaluated bets
+// exports.getAllBets = async (req, res) => {
+//     try {
+//         const rows = await loadValueBetsCSV();
+
+//         const usable = rows.filter(r => String(r.reason || '').trim().toLowerCase() !== 'missing_features');
+
+//         const leagueMap = {
+//             '0': 'Bundesliga',
+//             '1': 'Premier League',
+//             '2': 'Ligue 1',
+//             '3': 'Serie A',
+//             '4': 'La Liga'
+//         };
+
+//         const allBets = usable
+//             .map(r => {
+//                 const odds = parseFloat(r.chosen_odds);
+//                 const prob = parseFloat(r.chosen_prob);
+//                 const ev = parseFloat(r.Expected_Value);
+
+//                 let selection = 'N/A';
+//                 const pred = r.FTR_pred?.trim?.();
+//                 if (pred === 'H') selection = 'Home Win';
+//                 else if (pred === 'A') selection = 'Away Win';
+//                 else if (pred === 'D') selection = 'Draw';
+
+//                 let reason = String(r.reason || '').trim();
+//                 if (!reason) {
+//                     if (Number.isFinite(odds) && odds > 0 && Number.isFinite(prob) && Number.isFinite(ev)) {
+//                         const impliedProb = 1 / odds;
+//                         reason = `Model predicts ${(prob * 100).toFixed(1)}% win probability, but implied odds only ${(impliedProb * 100).toFixed(1)}% → EV: ${(ev * 100).toFixed(1)}%`;
+//                     } else {
+//                         reason = 'odds_unavailable';
+//                     }
+//                 }
+
+//                 return {
+//                     date: r.Date,
+//                     match_id: r.fixtureId,
+//                     team1: r.HomeTeam,
+//                     team2: r.AwayTeam,
+//                     sport: r.Sport || 'Football',
+//                     league: leagueMap[r.Div_enc?.trim?.()] || 'Unknown',
+//                     odds: Number.isFinite(odds) ? odds : null,
+//                     predicted_win_prob: Number.isFinite(prob) ? prob : null,
+//                     expected_value: Number.isFinite(ev) ? ev : null,
+//                     isValueBet: r.isValueBet === 'True' || r.isValueBet === 'TRUE',
+//                     selection,
+//                     reason,
+//                     home_win_odds: Number.isFinite(parseFloat(r.Est_BbAvH)) ? parseFloat(r.Est_BbAvH) : null,
+//                     draw_odds: Number.isFinite(parseFloat(r.Est_BbAvD)) ? parseFloat(r.Est_BbAvD) : null,
+//                     away_win_odds: Number.isFinite(parseFloat(r.Est_BbAvA)) ? parseFloat(r.Est_BbAvA) : null
+//                 };
+//             })
+//             .sort((a, b) => new Date(a.date) - new Date(b.date)); // ✅ Sort by date
+
+//         res.json(allBets);
+//     } catch (err) {
+//         res.status(500).json({ error: 'Failed to load all bets' });
+//     }
+// };
+
+// ✅ 3. All model-evaluated bets
 exports.getAllBets = async (req, res) => {
     try {
-        const rows = await loadValueBetsCSV();
+        console.log("📥 [getAllBets] Fetching rows from MongoDB...");
+        const rows = await ValueBet.find({}).toArray();
+        console.log(`📊 [getAllBets] Total rows fetched: ${rows.length}`);
 
         const usable = rows.filter(r => String(r.reason || '').trim().toLowerCase() !== 'missing_features');
+        console.log(`✅ [getAllBets] Rows after filtering 'missing_features': ${usable.length}`);
 
         const leagueMap = {
-            '0': 'Bundesliga',
-            '1': 'Premier League',
-            '2': 'Ligue 1',
-            '3': 'Serie A',
-            '4': 'La Liga'
+            0: 'Bundesliga',
+            1: 'Premier League',
+            2: 'Ligue 1',
+            3: 'Serie A',
+            4: 'La Liga'
         };
 
         const allBets = usable
-            .map(r => {
+            .map((r, idx) => {
                 const odds = parseFloat(r.chosen_odds);
                 const prob = parseFloat(r.chosen_prob);
                 const ev = parseFloat(r.Expected_Value);
 
                 let selection = 'N/A';
-                const pred = r.FTR_pred?.trim?.();
-                if (pred === 'H') selection = 'Home Win';
-                else if (pred === 'A') selection = 'Away Win';
-                else if (pred === 'D') selection = 'Draw';
+                if (r.FTR_pred === 'H') selection = 'Home Win';
+                else if (r.FTR_pred === 'A') selection = 'Away Win';
+                else if (r.FTR_pred === 'D') selection = 'Draw';
 
                 let reason = String(r.reason || '').trim();
                 if (!reason) {
@@ -261,28 +366,36 @@ exports.getAllBets = async (req, res) => {
                     }
                 }
 
-                return {
+                const betObj = {
                     date: r.Date,
                     match_id: r.fixtureId,
                     team1: r.HomeTeam,
                     team2: r.AwayTeam,
                     sport: r.Sport || 'Football',
-                    league: leagueMap[r.Div_enc?.trim?.()] || 'Unknown',
+                    league: leagueMap[r.Div_enc] || 'Unknown',
                     odds: Number.isFinite(odds) ? odds : null,
                     predicted_win_prob: Number.isFinite(prob) ? prob : null,
                     expected_value: Number.isFinite(ev) ? ev : null,
-                    isValueBet: r.isValueBet === 'True' || r.isValueBet === 'TRUE',
+                    isValueBet: r.isValueBet === true,
                     selection,
                     reason,
                     home_win_odds: Number.isFinite(parseFloat(r.Est_BbAvH)) ? parseFloat(r.Est_BbAvH) : null,
                     draw_odds: Number.isFinite(parseFloat(r.Est_BbAvD)) ? parseFloat(r.Est_BbAvD) : null,
                     away_win_odds: Number.isFinite(parseFloat(r.Est_BbAvA)) ? parseFloat(r.Est_BbAvA) : null
                 };
-            })
-            .sort((a, b) => new Date(a.date) - new Date(b.date)); // ✅ Sort by date
 
+                // if (idx < 5) { // only log first 5 rows for brevity
+                //     console.log("🔎 [getAllBets] Sample bet:", betObj);
+                // }
+
+                return betObj;
+            })
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        console.log(`📦 [getAllBets] Final bets count to return: ${allBets.length}`);
         res.json(allBets);
     } catch (err) {
+        console.error("❌ [getAllBets] Error:", err);
         res.status(500).json({ error: 'Failed to load all bets' });
     }
 };
